@@ -1,3 +1,22 @@
+/*----- SPLIT FASTQs INTO CHUNKS AND CONCAT SAM CHUNKS: not implemented -----
+def getFastqChunks() {
+    return channel
+        .fromFilePairs( params.fastqDir + "*_R{1,2}*[fq,fastq]*", flat:true )
+        .splitFastq(
+            by: 1000000,
+            pe: true,
+            file: true,
+            compress: true )
+}
+
+def concatenateAlignedChunks(alignedChunks) {
+    return alignedChunks
+        .collectFile(
+            name: "concatenated.lgen",
+            sort: true)
+}
+----------------------------------------------------------------------------*/
+
 /*
 def getInputs() {
     if(params.inputMode == "fastq")
@@ -14,16 +33,15 @@ def getBamFiles() {
 */
 
 def getFastq() {
-    return channel.fromFilePairs( params.fastqDir + "*_R{1,2}.fq.gz", size: 2 )
+    return channel.fromFilePairs( params.fastqDir + "*_R{1,2}*[fq,fastq]*", size: 2 )
                   .ifEmpty { error "\nERROR: Some fastq files could not be found!\n" }
                   .map { fqBase, fastq -> tuple(fqBase, fastq) }
 }
 
-
 process alignReadsToReference() {
     tag "processing ${fastqName}"
-    label 'bwa'
-    label 'bigMemory'
+    label 'bwa_bgzip'
+    label 'readAligner'
     input:
         tuple \
             val(fastqName), \
@@ -32,7 +50,7 @@ process alignReadsToReference() {
         publishDir path: "${params.outputDir}/fastq/"
         tuple \
             val(fastqName), \
-            path("${fastqName}.sam")
+            path("${fastqName}.sam.gz")
     script:
         (readOne, readTwo) = reads
         """
@@ -42,8 +60,8 @@ process alignReadsToReference() {
             ${params.fastaRef} \
             ${readOne} \
             ${readTwo} \
-            -R \"@RG\\tID:${fastqName}\\tSM:${fastqName}\\tPL:ILLUMINA\" \
-            -o "${fastqName}.sam"
+            -R \"@RG\\tID:${fastqName}\\tSM:${fastqName}\\tPL:ILLUMINA\" | \
+            bgzip -f -@ ${task.cpus} -c > "${fastqName}.sam.gz"
         """
 }
 
