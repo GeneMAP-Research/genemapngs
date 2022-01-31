@@ -16,9 +16,9 @@ include {
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
 workflow {
-    println "\nAlignment begins here\n"
-    fastq = getFastq()
-    sam = alignReadsToReference(fastq)
+    println "\nAlignment workflow begins here\n"
+    fastq = getFastq().view()
+    sam = alignReadsToReference(fastq).view()
     bam = convertSamToBam(sam)
     sortedBam = sortBam(bam)
     indexedBam = indexBam(sortedBam)

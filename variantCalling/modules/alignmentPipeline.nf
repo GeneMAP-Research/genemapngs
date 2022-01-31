@@ -93,7 +93,7 @@ process convertSamToBam() {
 process sortBam() {
     tag "processing ${bamName}"
     label 'samtools'
-    label 'bigMemory'
+    label 'bamSorter'
     input:
         tuple \
             val(bamName), \
@@ -118,7 +118,7 @@ process sortBam() {
 process indexBam() {
     tag "processing ${bamName}"
     label 'samtools'
-    label 'smallMemory'
+    label 'bamIndexer'
     input:
         tuple \
             val(bamName), \
@@ -141,7 +141,7 @@ process indexBam() {
 process markDuplicates() {
     tag "processing ${bamName}"
     label 'gatk'
-    label 'bigMemory'
+    label 'duplicateMarker'
     input:
         tuple \
             val(bamName), \
