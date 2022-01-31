@@ -90,78 +90,82 @@ process convertSamToBam() {
         """
 }
 
-process sortBam() {
-    tag "processing ${bamName}"
-    label 'samtools'
-    label 'bamSorter'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile)
-    output:
-        publishDir path: "${params.outputDir}/bam/"
-        tuple \
-            val(bamName), \
-            path("${bamName}.sorted.bam")
-    script:
-        """
-        samtools \
-            sort \
-            --reference ${params.fastaRef} \
-            -O BAM \
-            --threads ${task.cpus} \
-            -o "${bamName}.sorted.bam" \
-            ${bamFile}
-        """
-}
-
-process indexBam() {
-    tag "processing ${bamName}"
-    label 'samtools'
-    label 'bamIndexer'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile)
-    output:
-        publishDir path: "${params.outputDir}/bam/"
-        tuple \
-            val(bamName), \
-            path("${bamFile}"), \
-            path("${bamFile}.bai")
-    script:
-        """
-        samtools \
-            index \
-            -@ ${task.cpus} \
-            ${bamFile}
-        """
-}
-
-process markDuplicates() {
-    tag "processing ${bamName}"
-    label 'gatk'
-    label 'duplicateMarker'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile), \
-            path(bamIndex)
-    output:
-        publishDir path: "${params.outputDir}/bam/"
-        tuple \
-            val(bamName), \
-            path("${bamName}.dupsMarked.bam")
-    script:
-        """
-        gatk \
-            MarkDuplicates \
-            -I ${bamFile} \
-            -O "${bamName}.dupsMarked.bam" \
-            -M "${bamName}.bamMetrics.txt" \
-            --REMOVE_DUPLICATES
-        """
-}
+/*
+*  process sortBam() {
+*      tag "processing ${bamName}"
+*      label 'samtools'
+*      label 'bamSorter'
+*      input:
+*          tuple \
+*              val(bamName), \
+*              path(bamFile)
+*      output:
+*          publishDir path: "${params.outputDir}/bam/"
+*          tuple \
+*              val(bamName), \
+*              path("${bamName}.sorted.bam")
+*      script:
+*          """
+*          samtools \
+*              sort \
+*              --reference ${params.fastaRef} \
+*              -O BAM \
+*              --threads ${task.cpus} \
+*              -o "${bamName}.sorted.bam" \
+*              ${bamFile}
+*          """
+*  }
+*
+*    
+*  process indexBam() {
+*      tag "processing ${bamName}"
+*      label 'samtools'
+*      label 'bamIndexer'
+*      input:
+*          tuple \
+*              val(bamName), \
+*              path(bamFile)
+*      output:
+*          publishDir path: "${params.outputDir}/bam/"
+*          tuple \
+*              val(bamName), \
+*              path("${bamFile}"), \
+*              path("${bamFile}.bai")
+*      script:
+*          """
+*          samtools \
+*              index \
+*              -@ ${task.cpus} \
+*              ${bamFile}
+*          """
+*  }
+*  
+*  
+*  process markDuplicates() {
+*      tag "processing ${bamName}"
+*      label 'gatk'
+*      label 'duplicateMarker'
+*      input:
+*          tuple \
+*              val(bamName), \
+*              path(bamFile), \
+*              path(bamIndex)
+*      output:
+*          publishDir path: "${params.outputDir}/bam/"
+*          tuple \
+*              val(bamName), \
+*              path("${bamName}.dupsMarked.bam")
+*      script:
+*          """
+*          gatk \
+*              MarkDuplicates \
+*              -I ${bamFile} \
+*              -O "${bamName}.dupsMarked.bam" \
+*              -M "${bamName}.bamMetrics.txt" \
+*              --REMOVE_DUPLICATES
+*          """
+*  }
+*/  
 
 /*
 *
@@ -177,6 +181,142 @@ process markDuplicates() {
 *
 ******************************************/
 
+/*
+*  process recalibrateBaseQualityScores() {
+*      tag "processing ${bamName}"
+*      label 'gatk'
+*      label 'baseRecalibrator'
+*      input:
+*          tuple \
+*              val(bamName), \
+*              path(bamFile), \
+*              path(bamIndex)
+*      output:
+*          publishDir path: "${params.outputDir}/bam/"
+*          tuple \
+*              val(bamName), \
+*              path("${bamName}.recal-table.txt")
+*      script:
+*          """
+*          gatk \
+*              BaseRecalibrator \
+*              -I ${bamFile} \
+*              -O "${bamName}.recal-table.txt" \
+*              -R ${params.fastaRef} \
+*              --known-sites ${params.dbsnp} \
+*              --known-sites ${params.indelsRef} \
+*              --known-sites ${params.hapmap} \
+*              --known-sites ${params.omniRef} \
+*              --known-sites ${params.snpRef}
+*          """
+*  }
+*  
+*  process applyBaseQualityRecalibrator() {
+*      tag "processing ${bamName}"
+*      label 'gatk'
+*      label 'applyBqsr'
+*      input:
+*          tuple \
+*              val(bamName), \
+*              path(bamFile), \
+*              path(bamIndex), \
+*              path(recalTable) 
+*      output:
+*          publishDir path: "${params.outputDir}/bam/", mode: 'copy'
+*          tuple \
+*              val(bamName), \
+*              path("${bamName}.bqsr.bam"), \
+*              path("${bamName}.bqsr.bai")
+*      script:
+*          """
+*          gatk \
+*              ApplyBQSR \
+*              -I ${bamFile} \
+*              -O "${bamName}.bqsr.bam" \
+*              -bqsr "${recalTable}"
+*          """
+*  }
+*/
+
+/*------------- GATK SPARK PIPELINES -----------*/
+process buildBamIndex() {
+    tag "processing ${bamName}"
+    label 'gatk'
+    label 'bamIndexer'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+    output:
+        publishDir path: "${params.outputDir}/bam/"
+        tuple \
+            val(bamName), \
+            path("${bamFile}"), \
+            path("${bamName}.bai")
+    script:
+        """
+        gatk \
+            BuildBamIndex \
+            -I ${bamFile} \
+            -R ${params.fastaRef} \
+            -O ${bamName}.bai
+        """
+}
+
+process markDuplicates() {
+    tag "processing ${bamName}"
+    label 'gatk'
+    label 'duplicateMarker'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+            //path(bamIndex)
+    output:
+        publishDir path: "${params.outputDir}/bam/"
+        tuple \
+            val(bamName), \
+            path("${bamName}.dupsMarked.bam"), \
+            path("${bamName}.dupsMarked.bam.bai")
+    script:
+        """
+        gatk \
+            MarkDuplicatesSpark \
+            -I ${bamFile} \
+            -O "${bamName}.dupsMarked.bam" \
+            -M "${bamName}.bamMetrics.txt" \
+            -OBI true \
+            -- \
+            --spark-master local[${task.cpus}]
+        """
+}
+
+process fixBamTags() {
+    tag "processing ${bamName}"
+    label 'gatk'
+    label 'duplicateMarker'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path(bamIndex)
+    output:
+        publishDir path: "${params.outputDir}/bam/"
+        tuple \
+            val(bamName), \
+            path("${bamName}.fixed.bam"), \
+            path("${bamName}.fixed.bai")
+    script:
+        """
+        gatk \
+            SetNmMdAndUqTags \
+            -I ${bamName} \
+            -O ${bamName}.fixed.bam \
+            -R ${params.fastaRef} \
+            --CREATE_INDEX true
+        """
+}
+
 process recalibrateBaseQualityScores() {
     tag "processing ${bamName}"
     label 'gatk'
@@ -190,66 +330,22 @@ process recalibrateBaseQualityScores() {
         publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
-            path("${bamName}.recal-table.txt")
+            path("${bamName}.bqsr.bam"), \
+            path("${bamName}.bqsr.bai")
     script:
         """
         gatk \
-            BaseRecalibrator \
+            BQSRPipelineSpark \
             -I ${bamFile} \
-            -O "${bamName}.recal-table.txt" \
+            -O "${bamName}.bqsr.bam" \
             -R ${params.fastaRef} \
             --known-sites ${params.dbsnp} \
             --known-sites ${params.indelsRef} \
             --known-sites ${params.hapmap} \
             --known-sites ${params.omniRef} \
             --known-sites ${params.snpRef} \
+            -- \
+            --spark-master local[${task.cpus}]
         """
 }
 
-process applyBaseQualityRecalibrator() {
-    tag "processing ${bamName}"
-    label 'gatk'
-    label 'applyBqsr'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile), \
-            path(bamIndex), \
-            path(recalTable) 
-    output:
-        publishDir path: "${params.outputDir}/bam/", mode: 'copy'
-        tuple \
-            val(bamName), \
-            path("${bamName}.bqsr.bam"), \
-            path("${bamName}.bqsr.bai")
-    script:
-        """
-        gatk \
-            ApplyBQSR \
-            -I ${bamFile} \
-            -O "${bamName}.bqsr.bam" \
-            -bqsr "${recalTable}" \
-        """
-}
-
-/*
-process getFinalBam() {
-    tag "processing ${bamName}"
-    label 'smallMemory'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile), \
-            path(bamIndex)
-    output:
-        publishDir path: "${params.outputDir}/bam/", mode: 'copy'
-        tuple \
-            val(bamName), \
-            path("${bamName}.dupsMarked.bam"), \
-            path("${bamName}.dupsMarked.bam.bai")
-    script:
-        """
-        cp -r ${bamName}.dupsMarked.bam* "${params.outputDir}/bam/"
-        """
-}
-*/

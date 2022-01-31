@@ -6,28 +6,38 @@ include {
     getFastq;
     alignReadsToReference;
     convertSamToBam;
-    sortBam;
-    indexBam;
+    //sortBam;
+    //indexBam;
+    buildBamIndex;
     markDuplicates;
-    indexBam as indexMarkedBam;
+    fixBamTags;
+    //indexBam as indexMarkedBam;
     recalibrateBaseQualityScores;
-    applyBaseQualityRecalibrator;
-    //getFinalBam
+    //applyBaseQualityRecalibrator;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
 workflow {
     println "\nAlignment workflow begins here\n"
-    fastq = getFastq().view()
-    sam = alignReadsToReference(fastq).view()
+    fastq = getFastq()
+    sam = alignReadsToReference(fastq)
     bam = convertSamToBam(sam)
-    sortedBam = sortBam(bam)
-    indexedBam = indexBam(sortedBam)
-    markedBam = markDuplicates(indexedBam)
-    MarkedIndexedBam = indexMarkedBam(markedBam)
-    recalTable = recalibrateBaseQualityScores(MarkedIndexedBam)
-    MarkedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
-    applyBaseQualityRecalibrator(applyBQSR_input)
-    //getFinalBam(MarkedIndexedBam)
+
+    /*--- GATK SPARK PIPELINES ---*/
+    //indexedBam = buildBamIndex(bam).view()
+    markedBam = markDuplicates(bam).view()
+    fixedBam = fixBamTags(markedBam).view()
+    recalBam = recalibrateBaseQualityScores(fixedBam).view()
+
+/*
+*    sortedBam = sortBam(bam)
+*    indexedBam = indexBam(sortedBam)
+*    markedBam = markDuplicates(indexedBam)
+*    MarkedIndexedBam = indexMarkedBam(markedBam)
+*    recalTable = recalibrateBaseQualityScores(MarkedIndexedBam)
+*    MarkedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
+*    applyBaseQualityRecalibrator(applyBQSR_input)
+*/
+
 }
 
 workflow.onComplete { println "\nDone! Check results in ${params.outputDir}\n" }
