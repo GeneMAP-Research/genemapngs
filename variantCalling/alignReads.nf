@@ -23,9 +23,9 @@ workflow {
     bam = convertSamToBam(sam)
 
     /*--- GATK SPARK PIPELINES ---*/
-    //indexedBam = buildBamIndex(bam).view()
-    markedBam = markDuplicates(bam).view()
-    fixedBam = fixBamTags(markedBam).view()
+    //indexedBam = buildBamIndex(bam)
+    markedBam = markDuplicates(bam)
+    fixedBam = fixBamTags(markedBam)
     recalBam = recalibrateBaseQualityScores(fixedBam).view()
 
 /*

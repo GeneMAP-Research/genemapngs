@@ -310,7 +310,7 @@ process fixBamTags() {
         """
         gatk \
             SetNmMdAndUqTags \
-            -I ${bamName} \
+            -I ${bamFile} \
             -O ${bamName}.fixed.bam \
             -R ${params.fastaRef} \
             --CREATE_INDEX true
@@ -331,7 +331,7 @@ process recalibrateBaseQualityScores() {
         tuple \
             val(bamName), \
             path("${bamName}.bqsr.bam"), \
-            path("${bamName}.bqsr.bai")
+            path("${bamName}.bqsr.bam.bai")
     script:
         """
         gatk \
