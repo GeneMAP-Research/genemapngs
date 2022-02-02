@@ -89,14 +89,14 @@ process alignReadsToReference() {
     input:
         tuple \
             val(fastqName), \
-            path(reads)
+            path(readOne), \
+            path(readTwo)
     output:
         publishDir path: "${params.outputDir}/fastq/"
         tuple \
             val(fastqName), \
             path("${fastqName}.sam.gz")
     script:
-        (readOne, readTwo) = reads
         """
         bwa \
             mem \

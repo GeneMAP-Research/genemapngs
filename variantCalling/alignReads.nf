@@ -26,11 +26,11 @@ workflow {
 
     if( params.inputFileType == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
-        fastq = getInputFastqs().view()
+        fastq = getInputFastqs()
     }
     else if( params.inputFileType == "BAM" ) {
         println "INPUT FILE TYPE IS BAM\n"
-        bam = getInputBams().view()
+        bam = getInputBams()
         bamSortedByName = sortBamByName(bam)
         fastq = convertBamToFastq(bamSortedByName)
     }
