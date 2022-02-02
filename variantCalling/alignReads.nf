@@ -3,41 +3,55 @@
 nextflow.enable.dsl = 2
 
 include {
-    getFastq;
+    getInputFastqs;
+    getInputBams;
+    sortBamByName;
+    convertBamToFastq;
     alignReadsToReference;
     convertSamToBam;
-    //sortBam;
-    //indexBam;
+    sortBam;
+    indexBam;
     buildBamIndex;
     markDuplicates;
-    fixBamTags;
-    //indexBam as indexMarkedBam;
+    indexBam as indexMarkedBam;
     recalibrateBaseQualityScores;
-    //applyBaseQualityRecalibrator;
+    applyBaseQualityRecalibrator;
+    markDuplicatesSpark;
+    fixBamTags;
+    recalibrateBaseQualityScoresSpark;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
 workflow {
     println "\nAlignment workflow begins here\n"
-    fastq = getFastq()
+
+    if( params.inputFileType == "FASTQ" ) {
+        println "INPUT FILE TYPE IS FASTQ\n"
+        fastq = getInputFastqs().view()
+    }
+    else if( params.inputFileType == "BAM" ) {
+        println "INPUT FILE TYPE IS BAM\n"
+        bam = getInputBams().view()
+        bamSortedByName = sortBamByName(bam)
+        fastq = convertBamToFastq(bamSortedByName)
+    }
+
     sam = alignReadsToReference(fastq)
     bam = convertSamToBam(sam)
 
-    /*--- GATK SPARK PIPELINES ---*/
-    //indexedBam = buildBamIndex(bam)
-    markedBam = markDuplicates(bam)
-    fixedBam = fixBamTags(markedBam)
-    recalBam = recalibrateBaseQualityScores(fixedBam).view()
-
-/*
-*    sortedBam = sortBam(bam)
-*    indexedBam = indexBam(sortedBam)
-*    markedBam = markDuplicates(indexedBam)
-*    MarkedIndexedBam = indexMarkedBam(markedBam)
-*    recalTable = recalibrateBaseQualityScores(MarkedIndexedBam)
-*    MarkedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
-*    applyBaseQualityRecalibrator(applyBQSR_input)
-*/
-
+    if (params.sparkMode == false) {
+        sortedBam = sortBam(bam)
+        indexedBam = indexBam(sortedBam)
+        markedBam = markDuplicates(indexedBam)
+        markedIndexedBam = indexMarkedBam(markedBam)
+        recalTable = recalibrateBaseQualityScores(markedIndexedBam)
+        markedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
+        applyBaseQualityRecalibrator(applyBQSR_input)
+    }
+    else {
+        markedBam = markDuplicatesSpark(bam)
+        fixedBam = fixBamTags(markedBam)
+        recalBam = recalibrateBaseQualityScoresSpark(fixedBam).view()
+    }
 }
 
 workflow.onComplete { println "\nDone! Check results in ${params.outputDir}\n" }

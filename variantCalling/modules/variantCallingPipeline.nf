@@ -18,7 +18,8 @@ process callVariants() {
     script:
         """
         gatk \
-            HaplotypeCaller \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            HaplotypeCallerSpark \
             -I ${bamFile[1]} \
             -R ${params.fastaRef} \
             --dbsnp ${params.dbsnp} \
@@ -26,7 +27,9 @@ process callVariants() {
             --lenient true \
             -ERC GVCF \
             -OBI 'false' \
-            -O "${bamName}.gvcf.gz"
+            -O "${bamName}.gvcf.gz" \
+            -- \
+            --spark-master local[${task.cpus}]
         """
 }
 
