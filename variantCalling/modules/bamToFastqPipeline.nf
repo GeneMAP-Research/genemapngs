@@ -1,7 +1,9 @@
+/*
 def getBamFiles() {
     return channel.fromFilePairs( params.bamDir + "*.bam", size: 1 )
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
+*/
 
 process sortBamByName() {
     tag "processing ${bamName}"
