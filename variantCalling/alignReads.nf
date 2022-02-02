@@ -42,9 +42,9 @@ workflow {
         sortedBam = sortBam(bam)
         indexedBam = indexBam(sortedBam)
         markedBam = markDuplicates(indexedBam)
-        MarkedIndexedBam = indexMarkedBam(markedBam)
-        recalTable = recalibrateBaseQualityScores(MarkedIndexedBam)
-        MarkedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
+        markedIndexedBam = indexMarkedBam(markedBam)
+        recalTable = recalibrateBaseQualityScores(markedIndexedBam)
+        markedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
         applyBaseQualityRecalibrator(applyBQSR_input)
     }
     else {
