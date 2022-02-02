@@ -1,23 +1,5 @@
-def getBamFastq() {
-    if(params.dataFormat == "BAM") {
-        return channel.fromFilePairs( params.bamDir + "*.bam", size: 1 )
-                  .map { bamName, bamFile -> tuple(bamName, bamFile.first(), bamFile.first()) }
-                  .ifEmpty{ error "\nERROR Oops... no BAM files were found in ${params.bamDir}\n" }
-    }
-
-    else if(params.dataFormat == "FASTQ") {
-        return channel.fromFilePairs( params.bamDir + "*.f*q*", size: 2 )
-                  .map { fastqName, fastqFile -> tuple(fastName, fastqFile.first()) }
-                  .ifEmpty{ error "\nERROR Oops... no FASTQ files were found in ${params.bamDir}\n" }
-    }
-
-    else {  
-        error "\nERROR: Please set the data format [BAM/FASTQ] in the config file: e.g. dataFormat = 'BAM' \n"
-    }
-}
-
-process getFastqQualityReports() {
-    format = "${params.dataFormat}"
+process getReadsQualityReports() {
+    format = "${params.inputFileType}"
     label 'fastqc'
     label 'bigMemory'
     input:
