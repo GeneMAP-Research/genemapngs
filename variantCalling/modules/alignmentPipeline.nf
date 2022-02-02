@@ -281,6 +281,7 @@ process markDuplicates() {
     script:
         """
         gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicatesSpark \
             -I ${bamFile} \
             -O "${bamName}.dupsMarked.bam" \
@@ -335,6 +336,7 @@ process recalibrateBaseQualityScores() {
     script:
         """
         gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             BQSRPipelineSpark \
             -I ${bamFile} \
             -O "${bamName}.bqsr.bam" \
