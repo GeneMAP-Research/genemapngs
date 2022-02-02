@@ -1,5 +1,5 @@
 def getBamFiles() {
-    return channel.fromFilePairs( "${params.outputDir}/bam/" + "*.{bam,bai}", size: 2 )
+    return channel.fromFilePairs( params.outputDir + "bam/" + "*.{bam,*.bai}", size: 2 )
                   .ifEmpty { error "\nERROR: Could not locate a file!\n" }
                   .map { bamName, bamFileset -> tuple(bamName, bamFileset) }
 }
