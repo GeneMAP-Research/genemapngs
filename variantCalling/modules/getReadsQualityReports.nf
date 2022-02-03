@@ -1,7 +1,7 @@
 process getBamQualityReports() {
     tag "processing ${bamName}"
     label 'fastqc'
-    label 'bigMemory'
+    label 'fastqc_mem'
     input:
         tuple \
             val(bamName), \
@@ -22,7 +22,7 @@ process getBamQualityReports() {
 process getFastqQualityReports() {
     tag "processing ${fastqName}"
     label 'fastqc'
-    label 'bigMemory'
+    label 'fastqc_mem'
     input:
         tuple \
             val(fastqName), \
@@ -45,7 +45,7 @@ process getFastqQualityReports() {
 process getMultiQcFastqReports() {
     tag "Writing MULTIQC Report"
     label 'multiqc'
-    label 'bigMemory'
+    label 'multiqc_mem'
     input:
         val(fastqName)
     script:
