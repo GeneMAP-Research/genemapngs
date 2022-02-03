@@ -1,37 +1,24 @@
-process getReadsQualityReports() {
-    format = "${params.inputFileType}"
+process getBamQualityReports() {
+    tag "processing ${bamName}"
     label 'fastqc'
     label 'bigMemory'
     input:
         tuple \
-            val(dataName), \
-            path(fileOne), \
-            path(fileTwo)
-    output:   
-        val "${dataName}"
+            val(bamName), \
+            path(bamFile)
+    output:
+        publishDir path: "${params.outputDir}/fastqc/", mode: 'copy' 
+        path "${bamName}*"
     script:   
-    if( format == "FASTQ")
         """
-        mkdir -p ${params.outputDir}/fastqc
-        fastqc \
-            -f fastq \
-            -o ${params.outputDir}/fastqc/ \
-            -t ${task.cpus} \
-            ${fileOne} \
-            ${fileTwo}
-        """
-    else if( format == "BAM" )
-        """
-        mkdir -p ${params.outputDir}/fastqc
         fastqc \
             -f bam \
-            -o ${params.outputDir}/fastqc/ \
+            -o . \
             -t ${task.cpus} \
-            ${fileOne}
+            ${bamFile}
         """
 }
 
-/*
 process getFastqQualityReports() {
     tag "processing ${fastqName}"
     label 'fastqc'
@@ -39,25 +26,24 @@ process getFastqQualityReports() {
     input:
         tuple \
             val(fastqName), \
-            path(readOne), \
-            path(readTwo)
+            path(fastqReads)
     output:
-        val "${fastqName}"
+        publishDir path: "${params.outputDir}/fastqc/", mode: 'copy'
+        path "${fastqName}*"
     script:
+        (readOne, readTwo) = fastqReads
         """
-        mkdir -p ${params.outputDir}/fastqc
         fastqc \
             -f fastq \
-            -o ${params.outputDir}/fastqc/ \
+            -o . \
             -t ${task.cpus} \
             ${readOne} \
             ${readTwo}
         """
 }
-*/
 
 process getMultiQcFastqReports() {
-    tag "Writing MULTIQC Report "
+    tag "Writing MULTIQC Report"
     label 'multiqc'
     label 'bigMemory'
     input:
