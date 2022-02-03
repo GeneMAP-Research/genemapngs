@@ -1,5 +1,5 @@
 def getBamFiles() {
-    return channel.fromFilePairs( params.bamDir + "*.{bam,bai}", size: 2 )
+    return channel.fromFilePairs( params.outputDir + "bam/" + "*.{bam,*.bai}", size: 2 )
                   .ifEmpty { error "\nERROR: Could not locate a file!\n" }
                   .map { bamName, bamFileset -> tuple(bamName, bamFileset) }
 }
@@ -11,23 +11,22 @@ process callVariants() {
     input:
         tuple \
             val(bamName), \
-            path(bamFile)
+            path(bamFileset)
     output:
         publishDir path: "${params.outputDir}/gvcfs/"
-        path "${bamName}.gvcf.{gz,gz.tbi}"
+        path "${bamName}.g.vcf.{gz,gz.tbi}"
     script:
+        (bamFile, bamIndex) = bamFileset
         """
         gatk \
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             HaplotypeCallerSpark \
-            -I ${bamFile[1]} \
+            -I ${bamFile} \
             -R ${params.fastaRef} \
-            --dbsnp ${params.dbsnp} \
             --native-pair-hmm-threads ${task.cpus} \
-            --lenient true \
             -ERC GVCF \
             -OBI 'false' \
-            -O "${bamName}.gvcf.gz" \
+            -O "${bamName}.g.vcf.gz" \
             -- \
             --spark-master local[${task.cpus}]
         """
@@ -41,7 +40,7 @@ process combineGvcfs() {
         path gvcfList
     output:
         publishDir path: "${params.outputDir}/vcf/"
-        path "${params.outPrefix}.gvcf.{gz,gz.tbi}"
+        path "${params.outPrefix}.g.vcf.{gz,gz.tbi}"
     script:
         """
         for file in ${gvcfList}; do
@@ -55,7 +54,7 @@ process combineGvcfs() {
             -R ${params.fastaRef} \
             --arguments_file gvcf.list \
             --dbsnp ${params.dbsnp} \
-            -O "${params.outPrefix}.gvcf.gz"
+            -O "${params.outPrefix}.g.vcf.gz"
         """
 }
 

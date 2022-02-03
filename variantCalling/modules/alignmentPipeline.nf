@@ -37,7 +37,6 @@ process sortBamByName() {
             val(bamName), \
             path(bamFile) 
     output:
-        publishDir path: "${params.outputDir}/fastq/"
         tuple \
             val(bamName), \
             path("${bamName}.sortedByName.bam")
@@ -89,14 +88,13 @@ process alignReadsToReference() {
     input:
         tuple \
             val(fastqName), \
-            path(reads)
+            path(readOne), \
+            path(readTwo)
     output:
-        publishDir path: "${params.outputDir}/fastq/"
         tuple \
             val(fastqName), \
             path("${fastqName}.sam.gz")
     script:
-        (readOne, readTwo) = reads
         """
         bwa \
             mem \
@@ -118,7 +116,6 @@ process convertSamToBam() {
             val(samName), \
             path(samFile) 
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(samName), \
             path("${samName}.bam")
@@ -143,7 +140,6 @@ process sortBam() {
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamName}.sorted.bam")
@@ -168,7 +164,6 @@ process buildBamIndex() {
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamFile}"), \
@@ -193,7 +188,6 @@ process indexBam() {
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamFile}"), \
@@ -217,7 +211,6 @@ process markDuplicates() {
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamName}.dupsMarked.bam")
@@ -257,7 +250,6 @@ process recalibrateBaseQualityScores() {
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamName}.recal-table.txt")
@@ -315,7 +307,6 @@ process markDuplicatesSpark() {
             path(bamFile)
             //path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamName}.dupsMarked.bam"), \
@@ -337,14 +328,13 @@ process markDuplicatesSpark() {
 process fixBamTags() {
     tag "processing ${bamName}"
     label 'gatk'
-    label 'duplicateMarker'
+    label 'fixBam'
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/"
         tuple \
             val(bamName), \
             path("${bamName}.fixed.bam"), \
@@ -370,7 +360,7 @@ process recalibrateBaseQualityScoresSpark() {
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/"
+        publishDir path: "${params.outputDir}/bam/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}.bqsr.bam"), \
