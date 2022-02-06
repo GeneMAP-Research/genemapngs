@@ -1,0 +1,4 @@
+#-- ignoring these
+.*
+variantCalling/configs/containers-referenceDBs.config
+variantCalling/configs/base.config

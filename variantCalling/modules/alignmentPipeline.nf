@@ -19,11 +19,12 @@
 
 def getInputBams() {
     return channel.fromFilePairs( params.inputDir + "*.bam", size: 1 )
+                  .ifEmpty { error "\nERROR: Could not locate BAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
 
 def getInputFastqs() {
-    return channel.fromFilePairs( params.inputDir + "*_R{1,2}*[fq,fastq]*", size: 2 )
+    return channel.fromFilePairs( params.inputDir + "*_R{1,2}*.[fq,fastq]*", size: 2 )
                   .ifEmpty { error "\nERROR: Some fastq files could not be found!\n" }
                   .map { fqBase, fastq -> tuple(fqBase, fastq) }
 }
@@ -88,13 +89,13 @@ process alignReadsToReference() {
     input:
         tuple \
             val(fastqName), \
-            path(readOne), \
-            path(readTwo)
+            path(reads)
     output:
         tuple \
             val(fastqName), \
             path("${fastqName}.sam.gz")
     script:
+        ( readOne, readTwo ) = reads
         """
         bwa \
             mem \
@@ -155,30 +156,6 @@ process sortBam() {
         """
 }
 
-process buildBamIndex() {
-    tag "processing ${bamName}"
-    label 'gatk'
-    label 'bamIndexer'
-    input:
-        tuple \
-            val(bamName), \
-            path(bamFile)
-    output:
-        tuple \
-            val(bamName), \
-            path("${bamFile}"), \
-            path("${bamFile}.bai")
-    script:
-        """
-        gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
-            BuildBamIndex \
-            -I ${bamFile} \
-            -R ${params.fastaRef} \
-            -O ${bamFile}.bai
-        """
-}
-  
 process indexBam() {
     tag "processing ${bamName}"
     label 'samtools'
