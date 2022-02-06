@@ -11,7 +11,6 @@ include {
     convertSamToBam;
     sortBam;
     indexBam;
-    buildBamIndex;
     markDuplicates;
     indexBam as indexMarkedBam;
     recalibrateBaseQualityScores;
