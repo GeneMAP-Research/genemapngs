@@ -108,6 +108,30 @@ process alignReadsToReference() {
         """
 }
 
+precess dragenAligner() {
+    tag "processing ${fastqName}"
+    label 'dragmap'
+    label 'readAligner'
+    input:
+        tuple \
+            val(fastqName), \
+            path(reads)
+    output:
+        tuple \
+            val(fastqName), \
+            path("${fastqName}.sam.gz")
+    script:
+        ( readOne, readTwo ) = reads
+        """
+        dragen-os \
+            -r ${params.fastaRef} \
+            -1 ${readOne} \
+            -2 ${readTwo} | \
+            bgzip -f -@ ${task.cpus} -c > "${fastqName}.sam.gz"
+        """
+}
+
+
 process convertSamToBam() {
     tag "processing ${samName}"
     label 'samtools'

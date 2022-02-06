@@ -8,6 +8,7 @@ include {
     sortBamByName;
     convertBamToFastq;
     alignReadsToReference;
+    dragenAligner;
     convertSamToBam;
     sortBam;
     indexBam;
@@ -34,10 +35,16 @@ workflow {
     }
     else { error "\nERROR: You must specify a file type! Options are FASTQ and BAM (case sensitive)\n" }
 
-    sam = alignReadsToReference(fastq)
+    if( params.aligner == "DRAGMAP" ) {
+        sam = dragenAligner(fastq).view()
+    }
+    else {
+        sam = alignReadsToReference(fastq)
+    }
+
     bam = convertSamToBam(sam)
 
-    if (params.sparkMode == false) {
+    if(params.sparkMode == false) {
         sortedBam = sortBam(bam)
         indexedBam = indexBam(sortedBam)
         markedBam = markDuplicates(indexedBam)
