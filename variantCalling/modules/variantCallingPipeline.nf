@@ -1,7 +1,13 @@
-def getBamFiles() {
-    return channel.fromFilePairs( params.outputDir + "bam/" + "*.{bam,*.bai}", size: 2 )
-                  .ifEmpty { error "\nERROR: Could not locate a file!\n" }
-                  .map { bamName, bamFileset -> tuple(bamName, bamFileset) }
+def getBamFile() {
+    return channel.fromFilePairs( params.outputDir + '/bam/' + "*.bam", size: 1, flat: true )
+                  .ifEmpty { error "\nERROR: Could not locate a file! \n" }
+                  //.map { bamName, bamFile -> tuple(bamName, bamFile) }
+}
+
+def getBamIndex() {
+    return channel.fromFilePairs( params.outputDir + '/bam/' + "*.bai", size: 1, flat: true )
+                  .ifEmpty { error "\nERROR: Could not locate a file! \n" }
+                  //.map { bamName, bamIndex -> tuple(bamName, bamIndex) }
 }
 
 process callVariants() {
@@ -11,12 +17,12 @@ process callVariants() {
     input:
         tuple \
             val(bamName), \
-            path(bamFileset)
+            path(bamFile), \
+            path(bamIndex)
     output:
         publishDir path: "${params.outputDir}/gvcfs/"
         path "${bamName}.g.vcf.{gz,gz.tbi}"
     script:
-        (bamFile, bamIndex) = bamFileset
         """
         gatk \
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \

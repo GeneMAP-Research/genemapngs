@@ -17,7 +17,7 @@ workflow {
     println "\nFASTQ/BAM Quality Reports begins here\n"
     if( params.inputFileType == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
-        fastq = getInputFastqs()
+        fastq = getInputFastqs().view()
         fastqReports = getFastqQualityReports(fastq).collect()
         getMultiQcFastqReports(fastqReports)
     }

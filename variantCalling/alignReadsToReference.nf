@@ -23,7 +23,6 @@ include {
 
 workflow {
     println "\nAlignment workflow begins here\n"
-
     if( params.inputFileType == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
         fastq = getInputFastqs()
@@ -34,6 +33,7 @@ workflow {
         bamSortedByName = sortBamByName(bam)
         fastq = convertBamToFastq(bamSortedByName)
     }
+    else { error "\nERROR: You must specify a file type! Options are FASTQ and BAM (case sensitive)\n" }
 
     sam = alignReadsToReference(fastq)
     bam = convertSamToBam(sam)
