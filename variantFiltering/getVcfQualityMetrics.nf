@@ -7,19 +7,21 @@ include {
     getVcfIndex;
     getChromosomes;
     getThousandGenomesReference;
-    vqsr;
-    applyVQSR;
+    vqsrSnp;
+    vqsrIndel;
+    applyVqsrSnp;
+    applyVqsrIndel;
+    mergeVCFs;
     getVcfIndex as indexFilteredVcf;
     splitMultiallelicSnvs;
     getVcfIndex as indexMultiallelicSplittedVcf;
     leftnormalizeSnvs;
-    filtereVCF;
+    filterVCF;
     transformVcfWithPlink;
     getVcfIndex as getTransformedVcfIndex;
     getVcfStats;
     //plotVcfStats;
-    getVcfIntersect;
-    
+    getVcfIntersect;    
 } from "${projectDir}/modules/vcfQualityAndFilter.nf"
 
 workflow {
@@ -27,15 +29,22 @@ workflow {
 
     vcf = getVcf()
     vcf_index = getVcfIndex(vcf)
-    chrom = getChromosomes()
-    kgp = getThousandGenomesReference()
-    recalTable_tranches = vqsr(vcf, vcf_index)
-    recalibrated_vcf = applyVQSR(vcf, vcf_index, recalTable_tranches)
-    filtered_vcf = filtereVCF(recalibrated_vcf)
-    filtered_vcf_index = indexFilteredVcf(filtered_vcf)
-    multiallelicSplitted_vcf = splitMultiallelicSnvs(filtered_vcf, filtered_vcf_index)
+    //chrom = getChromosomes()
+    //kgp = getThousandGenomesReference()
+    recalTable_tranches_snp = vqsrSnp(vcf, vcf_index)
+    recalTable_tranches_indel = vqsrIndel(vcf, vcf_index)
+    recalibrated_vcf_snp = applyVqsrSnp(vcf, vcf_index, recalTable_tranches_snp)
+    recalibrated_vcf_indel = applyVqsrIndel(vcf, vcf_index, recalTable_tranches_indel)
+
+    recalibrated_vcf_snp.combine(recalibrated_vcf_indel).flatten().set { filter_input }
+    filtered = filterVCF(filter_input).collect()
+    mergedVcf = mergeVCFs(filtered).view()
+    merged_vcf_index = indexFilteredVcf(mergedVcf)
+    multiallelicSplitted_vcf = splitMultiallelicSnvs(mergedVcf, merged_vcf_index)
     multiallelicSplitted_vcf_index = indexMultiallelicSplittedVcf(multiallelicSplitted_vcf)
     leftnormalized_vcf = leftnormalizeSnvs(multiallelicSplitted_vcf, multiallelicSplitted_vcf_index)
+
+/*
     transformedVcf = transformVcfWithPlink(leftnormalized_vcf)
     transformedVcf_index = getTransformedVcfIndex(transformedVcf)
     vcfstats = getVcfStats(leftnormalized_vcf)
@@ -64,5 +73,6 @@ workflow {
         .view()
     //intersect_path = getIntersectPath().collect().view()
     //concatenateIntersectVcf( intersects )
+*/
 }
 

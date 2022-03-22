@@ -3,7 +3,7 @@ def getVCF() {
                   .ifEmpty { println "\nERROR: No VCF file found!\n" }
 }
 
-process annotateVcfFiles() {
+process annovarGRCh37() {
     tag "processing ${vcfFile}"
     label 'annovar'
     label 'annovarMem'
@@ -16,7 +16,7 @@ process annotateVcfFiles() {
     script:
         """
         table_annovar.pl \
-            ${params.inputDir}/${vcfFile} \
+            ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg19 \
             -out ${vcfFile.baseName} \
@@ -25,6 +25,35 @@ process annotateVcfFiles() {
             -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f \
             -nastring '.' \
             -vcfinput \
-            -polish 
+            -polish \
+            --thread ${task.cpus} 
         """
 }
+
+process annovarGRCh38() {
+    tag "processing ${vcfFile}"
+    label 'annovar'
+    label 'annovarMem'
+
+    input:
+        path(vcfFile)
+    output:
+        publishDir path: "${params.outputDir}/annovarOutput/", mode: 'copy'
+        path "${vcfFile.baseName}*multianno.{vcf,txt}"
+    script:
+        """
+        table_annovar.pl \
+            ${vcfFile} \
+            ${params.annovarDB} \
+            -buildver hg38 \
+            -out ${vcfFile.baseName} \
+            -remove \
+            -protocol refGene,knownGene,ucscGenePfam,cytoBand,keggPathway,dbnsfp42c,dbnsfp31a_interpro,dbscsnv11,intervar_20180118,cosmic70,exac03,gene4denovo201907,gnomad211_exome,kaviar_20150923,ALL.sites.2015_08,gme,abraom,revel,avsnp150,clinvar_20210501,regsnpintron,gwasCatalog \
+            -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,r \
+            -nastring '.' \
+            -vcfinput \
+            -polish \
+            --thread ${task.cpus}
+        """
+}
+

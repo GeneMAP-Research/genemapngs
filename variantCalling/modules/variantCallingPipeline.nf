@@ -26,6 +26,31 @@ process callVariants() {
         """
         gatk \
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            HaplotypeCaller \
+            -I ${bamFile} \
+            -R ${params.fastaRef} \
+            -ERC GVCF \
+            -OBI 'false' \
+            -O "${bamName}.g.vcf.gz" 
+        """
+}
+
+process callVariantsSpark() {
+    tag "processing ${bamName}"
+    label 'gatk'
+    label 'variantCaller'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path(bamIndex)
+    output:
+        publishDir path: "${params.outputDir}/gvcfs/"
+        path "${bamName}.g.vcf.{gz,gz.tbi}"
+    script:
+        """
+        gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             HaplotypeCallerSpark \
             -I ${bamFile} \
             -R ${params.fastaRef} \
