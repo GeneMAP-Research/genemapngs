@@ -36,7 +36,7 @@ process getVcfIndex() {
         """
 }
 
-process vqsr() {
+process vqsrSnp() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
     label 'vqsr'
@@ -46,18 +46,23 @@ process vqsr() {
     output:
         publishDir path: "${params.outputDir}"
         tuple \
-              path("${params.outputPrefix}.recal"), \
-              path("${params.outputPrefix}.recal.idx"), \
-              path("${params.outputPrefix}.tranches")
+              path("${params.outputPrefix}.snp.recal"), \
+              path("${params.outputPrefix}.snp.recal.idx"), \
+              path("${params.outputPrefix}.snp.tranches")
     script:
         """
-        gatk VariantRecalibrator \
+        gatk \
+           --java-options "-Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+           VariantRecalibrator \
            -R ${params.fastaRef} \
+           -tranche 100.0 -tranche 99.95 -tranche 99.9 \
+           -tranche 99.5 -tranche 99.0 -tranche 97.0 -tranche 96.0 \
+           -tranche 95.0 -tranche 94.0 \
+           -tranche 93.5 -tranche 93.0 -tranche 92.0 -tranche 91.0 -tranche 90.0 \
            -V ${input_vcf} \
            --resource:hapmap,known=false,training=true,truth=true,prior=15.0 ${params.hapmap} \
-           --resource:1000G,known=false,training=true,truth=false,prior=10.0 ${params.snps} \
-           --resource:1000G,known=false,training=true,truth=false,prior=10.0 ${params.indels} \
-           --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omni} \
+           --resource:1000G,known=false,training=true,truth=false,prior=10.0 ${params.snpRef} \
+           --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
            --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
            -an QD \
            -an MQ \
@@ -65,17 +70,59 @@ process vqsr() {
            -an ReadPosRankSum \
            -an FS \
            -an SOR \
-           -mode BOTH \
-           -O ${params.outputPrefix}.recal \
-           --tranches-file ${params.outputPrefix}.tranches \
-           --rscript-file ${params.outputPrefix}.plots.R
+           -mode SNP \
+           -O ${params.outputPrefix}.snp.recal \
+           --tranches-file ${params.outputPrefix}.snp.tranches \
+           --rscript-file ${params.outputPrefix}.snp.plots.R
         """
 }
 
-process applyVQSR() {
+process vqsrIndel() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
-    label 'bigMemory'
+    label 'vqsr'
+    input:
+        path(input_vcf)
+        path(vcf_index)
+    output:
+        publishDir path: "${params.outputDir}"
+        tuple \
+              path("${params.outputPrefix}.indel.recal"), \
+              path("${params.outputPrefix}.indel.recal.idx"), \
+              path("${params.outputPrefix}.indel.tranches")
+    script:
+        """
+        gatk \
+           --java-options "-Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+           VariantRecalibrator \
+           -R ${params.fastaRef} \
+           -V ${input_vcf} \
+           -tranche 100.0 -tranche 99.95 -tranche 99.9 \
+           -tranche 99.5 -tranche 99.0 -tranche 97.0 -tranche 96.0 \
+           -tranche 95.0 -tranche 94.0 -tranche 93.5 -tranche 93.0 \
+           -tranche 92.0 -tranche 91.0 -tranche 90.0 \
+           --resource:hapmap,known=false,training=true,truth=true,prior=15.0 ${params.hapmap} \
+           --resource:1000G,known=false,training=true,truth=false,prior=12.0 ${params.millsIndel} \
+           --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
+           --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
+           -an QD \
+           -an DP \
+           -an MQRankSum \
+           -an ReadPosRankSum \
+           -an FS \
+           -an SOR \
+           -mode INDEL \
+           --max-gaussians 4 \
+           -O ${params.outputPrefix}.indel.recal \
+           --tranches-file ${params.outputPrefix}.indel.tranches \
+           --rscript-file ${params.outputPrefix}.indel.plots.R
+        """
+}
+
+process applyVqsrSnp() {
+    tag "VCF supplied: ${input_vcf}"
+    label 'gatk'
+    label 'applyVqsr'
     input:
         path(input_vcf)
         path(vcf_index)
@@ -84,22 +131,81 @@ process applyVQSR() {
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.outputDir}"
-        path "${params.outputPrefix}.vqsr.vcf.gz"
+        publishDir path: "${params.outputDir}", mode: 'copy'
+        path "${params.outputPrefix}.snp.vqsr.vcf.gz"
     script:
         """
-        gatk ApplyVQSR \
+        gatk \
+            --java-options "-Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+            ApplyVQSR \
             -V ${input_vcf} \
             --recal-file ${recal_table} \
-            --mode BOTH \
-            --lenient true \
+            --mode SNP \
+            --truth-sensitivity-filter-level 99.9 \
+            --create-output-variant-index true \
             --tranches-file ${tranches} \
             -R ${params.fastaRef} \
-            -O ${params.outputPrefix}.vqsr.vcf.gz
+            -O ${params.outputPrefix}.snp.vqsr.vcf.gz
         """
 }
 
-process filtereVCF() {
+process applyVqsrIndel() {
+    tag "VCF supplied: ${input_vcf}"
+    label 'gatk'
+    label 'applyVqsr'
+    input:
+        path(input_vcf)
+        path(vcf_index)
+        tuple \
+            path(recal_table), \
+            path(recal_index), \
+            path(tranches)   
+    output:
+        publishDir path: "${params.outputDir}", mode: 'copy'
+        path "${params.outputPrefix}.indel.vqsr.vcf.gz"
+    script:
+        """
+        gatk \
+            --java-options "-Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+            ApplyVQSR \
+            -V ${input_vcf} \
+            --recal-file ${recal_table} \
+            --mode INDEL \
+            --truth-sensitivity-filter-level 99.9 \
+            --create-output-variant-index true \
+            --tranches-file ${tranches} \
+            -R ${params.fastaRef} \
+            -O ${params.outputPrefix}.indel.vqsr.vcf.gz
+        """
+}
+
+process mergeVCFs() {
+    tag "merging VCFs"
+    label 'bcftools'
+    label 'mediumMemory'
+    input:
+        tuple \
+            path(snp_vcf), \
+            path(indel_vcf)
+    output:
+        publishDir path: "${params.outputDir}", mode: 'copy'
+        path"${params.outputPrefix}.snp.indel.vqsr.vcf.gz"
+    script:
+        """
+        for i in $snp_vcf $indel_vcf; do bcftools index -ft --threads ${task.cpus} \$i; done
+
+        bcftools \
+            concat \
+            -a -d all \
+            --threads ${task.cpus} \
+            -Oz \
+            $snp_vcf \
+            $indel_vcf \
+            -o ${params.outputPrefix}.snp.indel.vqsr.vcf.gz
+        """
+}
+
+process filterVCF() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
     label 'mediumMemory'
@@ -107,7 +213,7 @@ process filtereVCF() {
         path input_vcf
     output:
         publishDir path: "${params.outputDir}", mode: 'copy'
-        path "${params.outputPrefix}-filtered.vcf.gz"
+        path "${input_vcf.baseName}.filtered.vcf.gz"
     script:
         """
         bcftools \
@@ -124,7 +230,7 @@ process filtereVCF() {
                     -i \'GQ>=${params.minGQ}\' \
                     --threads ${task.cpus} \
                     -Oz \
-                    -o "${params.outputPrefix}-filtered.vcf.gz"
+                    -o "${input_vcf.baseName}.filtered.vcf.gz"
         """
 }
 
