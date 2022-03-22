@@ -36,7 +36,7 @@ workflow {
     else { error "\nERROR: You must specify a file type! Options are FASTQ and BAM (case sensitive)\n" }
 
     if( params.aligner == "DRAGMAP" ) {
-        sam = dragenAligner(fastq).view()
+        sam = dragenAligner(fastq)
     }
     else {
         sam = alignReadsToReference(fastq)
