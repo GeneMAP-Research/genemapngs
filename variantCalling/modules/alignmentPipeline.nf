@@ -108,7 +108,25 @@ process alignReadsToReference() {
         """
 }
 
-precess dragenAligner() {
+process buildRefHashTable() {
+    tag "BULIDING HASH TABLE"
+    label 'dragmap'
+    label 'longRun'
+    input:
+        path fastaRef
+    output:
+        publishDir  path: "${params.referenceDir}", mode: 'copy'
+        path "*"
+    script:
+        """
+        dragen-os \
+            --build-hash-table true \
+            --ht-reference ${fastaRef}  \
+            --output-file-prefix=${fastaRef.baseName}
+        """
+}
+
+process dragenAligner() {
     tag "processing ${fastqName}"
     label 'dragmap'
     label 'readAligner'
@@ -127,15 +145,42 @@ precess dragenAligner() {
             -r ${params.fastaRef} \
             -1 ${readOne} \
             -2 ${readTwo} | \
-            bgzip -f -@ ${task.cpus} -c > "${fastqName}.sam.gz"
+            bgzip -f -@ ${task.cpus} -c > ${fastqName}.sam.gz
         """
 }
 
+//--- TMAP ALIGNER FOR ION TORRENT ---
+
+/*  process tmapAligner() {
+*      tag "processing ${fastqName}"
+*      label 'tmap'
+*      label 'readAligner'
+*      input:
+*          tuple \
+*              val(fastqName), \
+*              path(reads)
+*      output:
+*          tuple \
+*              val(fastqName), \
+*              path("${fastqName}.sam.gz")
+*      script:
+*          ( readOne, readTwo ) = reads
+*          """
+*          tmap \
+*              mapall \
+*              -f ${params.fastaRef} \
+*              -r ${readOne} \
+*              -n ${task.cpus} \
+*              -v stage1 map1 map2 map3 | \
+*              bgzip -f -@ ${task.cpus} -c > "${fastqName}.sam.gz"
+*          """
+*  }
+*/  
 
 process convertSamToBam() {
     tag "processing ${samName}"
     label 'samtools'
-    label 'mediumMemory'
+    label 'samConverter'
     input:
         tuple \
             val(samName), \
@@ -322,6 +367,8 @@ process markDuplicatesSpark() {
             -M "${bamName}.bamMetrics.txt" \
             -OBI true \
             -- \
+            --conf 'spark.local.dir=${workDir}/temp'
+            --conf 'spark.executor.cores=${task.cpus}'
             --spark-master local[${task.cpus}]
         """
 }
