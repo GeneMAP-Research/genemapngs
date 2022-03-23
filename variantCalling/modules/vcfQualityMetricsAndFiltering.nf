@@ -36,7 +36,7 @@ process vqsrSnp() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}"
+        publishDir path: "${params.outputDir}/vqsr-tables/", mode: 'copy'
         tuple \
               path("${params.outPrefix}.snp.recal"), \
               path("${params.outPrefix}.snp.recal.idx"), \
@@ -77,7 +77,7 @@ process vqsrIndel() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}"
+        publishDir path: "${params.outputDir}/vqsr-tables/", mode: 'copy'
         tuple \
               path("${params.outPrefix}.indel.recal"), \
               path("${params.outPrefix}.indel.recal.idx"), \
@@ -123,7 +123,7 @@ process applyVqsrSnp() {
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.outputDir}", mode: 'copy'
+        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
         path "${params.outPrefix}.snp.vqsr.vcf.gz"
     script:
         """
@@ -153,7 +153,7 @@ process applyVqsrIndel() {
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.outputDir}", mode: 'copy'
+        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
         path "${params.outPrefix}.indel.vqsr.vcf.gz"
     script:
         """
@@ -180,7 +180,7 @@ process mergeVCFs() {
             path(snp_vcf), \
             path(indel_vcf)
     output:
-        publishDir path: "${params.outputDir}", mode: 'copy'
+        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
         path"${params.outPrefix}.snp.indel.vqsr.vcf.gz"
     script:
         """
@@ -204,7 +204,7 @@ process filterVCF() {
     input:
         path input_vcf
     output:
-        publishDir path: "${params.outputDir}", mode: 'copy'
+        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
         path "${input_vcf.baseName}.filtered.vcf.gz"
     script:
         """
@@ -234,7 +234,7 @@ process splitMultiallelicSnvs() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}"
+        publishDir path: "${params.outputDir}/vqsr/"
         path "${params.outPrefix}-tmp.vcf.gz"
     script:
         """

@@ -267,8 +267,7 @@ process markDuplicates() {
             MarkDuplicates \
             -I ${bamFile} \
             -O "${bamName}.dupsMarked.bam" \
-            -M "${bamName}.bamMetrics.txt" \
-            --REMOVE_DUPLICATES
+            -M "${bamName}.bamMetrics.txt" 
         """
 }
  
