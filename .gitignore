@@ -1,4 +1,9 @@
 #-- ignoring these
 .*
-variantCalling/configs/containers-referenceDBs.config
-variantCalling/configs/base.config
+configs/containersDir.config
+configs/base.config
+configs/reference-hg*.config
+configs/test-chpc.config
+configs/chpc.config
+configs/test-base.config
+configs/ucthpc.config
