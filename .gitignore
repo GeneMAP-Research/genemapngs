@@ -1,7 +1,6 @@
 #-- ignoring these
 .*
 configs/containersDir.config
-configs/base.config
 configs/reference-hg*.config
 configs/test-chpc.config
 configs/chpc.config

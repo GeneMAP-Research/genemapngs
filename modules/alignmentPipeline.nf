@@ -32,7 +32,7 @@ def getInputFastqs() {
 process sortBamByName() {
     tag "processing ${bamName}"
     label 'samtools'
-    label 'bigMemory'
+    label 'bamSorter'
     input:
         tuple \
             val(bamName), \
@@ -57,7 +57,7 @@ process sortBamByName() {
 process convertBamToFastq() {
     tag "processing ${bamName}"
     label 'samtools'
-    label 'mediumMemory'
+    label 'bamSorter'
     input:
         tuple \
             val(bamName), \
