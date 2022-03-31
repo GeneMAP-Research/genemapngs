@@ -92,6 +92,7 @@ process readsTrimmer() {
         (readOne, readTwo) = fastqReads
         """
         trimmomatic PE \
+            -threads ${task.cpus} \
             -phred33 \
             ${readOne} \
             ${readTwo} \
@@ -100,10 +101,11 @@ process readsTrimmer() {
             ${fastqName}_trimmed_R2_P.fq.gz \
             ${fastqName}_trimmed_R2_U.fq.gz \
             ILLUMINACLIP:${adapter}:2:30:10 \
+            SLIDINGWINDOW:4:15 \
             LEADING:20 \
             TRAILING:20 \
-            SLIDINGWINDOW:4:15 \
-            MINLEN:${params.min_length} \
-            -threads ${task.cpus}
+            CROP:${params.crop} \
+            HEADCROP:${params.headcrop} \
+            MINLEN:${params.min_length}
         """
 }

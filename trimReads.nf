@@ -72,7 +72,7 @@ workflow {
     """
     }
 
-    trimmed_reads = readsTrimmer(trim_input).view()
+    trimmed_reads = readsTrimmer(trim_input)
 
 }
 
