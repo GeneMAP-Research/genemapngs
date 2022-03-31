@@ -25,7 +25,7 @@ process callVariants() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             HaplotypeCaller \
             -I ${bamFile} \
             -R ${params.fastaRef} \
@@ -34,6 +34,8 @@ process callVariants() {
             -O "${bamName}.g.vcf.gz" 
         """
 }
+
+//            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
 
 process callVariantsSpark() {
     tag "processing ${bamName}"
@@ -50,7 +52,7 @@ process callVariantsSpark() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             HaplotypeCallerSpark \
             -I ${bamFile} \
             -R ${params.fastaRef} \
@@ -81,6 +83,7 @@ process combineGvcfs() {
         done > gvcf.list
 
         gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             CombineGVCFs \
             -R ${params.fastaRef} \
             --arguments_file gvcf.list \
@@ -130,6 +133,7 @@ process joinCallVariants() {
     script:
         """
         gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             GenotypeGVCFs \
             -R ${params.fastaRef} \
             --dbsnp ${params.dbsnp} \
@@ -139,28 +143,3 @@ process joinCallVariants() {
         """
 }
 
-/*
-process indexVcf() {
-    tag "processing ${vcfName}"
-    label 'bcftools'
-    label 'mediumMemory'
-    input:
-        tuple \
-            val(vcfName), \
-            path(vcf)
-    output:
-        publishDir path: "${params.outputDir}/gvcfs/"
-        tuple \
-            val(vcfName), \ 
-            path("${vcf}"), \
-            path("${vcf}.tbi")
-    script: 
-        """
-        bcftools \
-            index \
-            -ft \
-            --threads ${task.cpus} \
-            ${vcf}
-        """
-}
-*/
