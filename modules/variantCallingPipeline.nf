@@ -1,13 +1,7 @@
-def getBamFile() {
-    return channel.fromFilePairs( params.outputDir + '/bam/' + "*.bam", size: 1, flat: true )
+def getBamFileSet() {
+    return channel.fromFilePairs( params.outputDir + '/bam/' + "*.{bam,bam.bai}", size: 2, flat: true )
                   .ifEmpty { error "\nERROR: Could not locate a file! \n" }
-                  //.map { bamName, bamFile -> tuple(bamName, bamFile) }
-}
-
-def getBamIndex() {
-    return channel.fromFilePairs( params.outputDir + '/bam/' + "*.bai", size: 1, flat: true )
-                  .ifEmpty { error "\nERROR: Could not locate a file! \n" }
-                  //.map { bamName, bamIndex -> tuple(bamName, bamIndex) }
+                  .map { bamName, bamFile, bamIndex -> tuple(bamName, bamFile, bamIndex) }
 }
 
 process callVariants() {
@@ -143,3 +137,74 @@ process joinCallVariants() {
         """
 }
 
+process deepVariantCaller() {
+    tag "Writing genotypes to ${params.outPrefix}.vcf.gz"
+    label 'deepvariant'
+    label 'deepv_caller'
+    beforeScript = 'module load python/anaconda-python-3.7'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path(bamIndex)
+    output:
+        publishDir path: "${params.outputDir}/vcf/", mode: 'copy'
+        path "${bamName}.g.vcf.{gz,gz.tbi}"
+    script:
+        """
+        run_deepvariant \
+            --model_type=WGS \
+            --ref=${params.fastaRef} \
+            --reads=${bamFile} \
+            --output_gvcf=${bamName}.g.vcf.gz \
+            --output_vcf=${bamName}.vcf.gz \
+            --num_shards=${task.cpus}
+        """
+}
+
+process glnexusJointCaller() {
+    tag "Writing genotypes to ${params.outPrefix}.vcf.gz"
+    label 'glnexus'
+    label 'nexus_caller'
+    input:
+        path gvcfList
+    output:
+        publishDir path: "${params.outputDir}/vcf/"
+        path "${params.outPrefix}_glnexus.bcf"
+    script:
+        """
+        for file in ${gvcfList}; do
+            if [ \${file##*.} != "tbi" ]; then
+                echo "\${file}";
+            fi
+        done | sort -V > gvcf.list
+
+        if [ -d "GLnexus.DB" ]; then rm -rf GLnexus.DB; fi
+
+        glnexus_cli \
+            --config DeepVariant \
+            --list gvcf.list \
+            --threads ${task.cpus} \
+            > "${params.outPrefix}_glnexus.bcf"
+        """
+}
+
+process convertBcfToVcf() {
+    tag "Writing genotypes to ${bcf_file.baseName}.vcf.gz"
+    label 'bcftools'
+    label 'nexus_caller'
+    input:
+        path bcf_file
+    output:
+        publishDir path: "${params.outputDir}/vcf/", mode: 'copy'
+        path "${bcf_file.baseName}.vcf.gz"
+    script:
+        """
+        bcftools \
+            view \
+            --threads ${task.cpus} \
+            -Oz \
+            -o ${bcf_file.baseName}.vcf.gz \
+            ${bcf_file}
+        """
+}

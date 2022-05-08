@@ -239,6 +239,7 @@ process indexBam() {
             path("${bamFile}"), \
             path("${bamFile}.bai")
     script:
+        bam = bamFile[0]
         """
         samtools \
             index \
@@ -263,7 +264,7 @@ process markDuplicates() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicates \
             -I ${bamFile} \
             -O "${bamName}.dupsMarked.bam" \
@@ -329,7 +330,7 @@ process applyBaseQualityRecalibrator() {
         tuple \
             val(bamName), \
             path("${bamName}.bqsr.bam"), \
-            path("${bamName}.bqsr.bai")
+            path("${bamName}.bqsr.bam.bai")
     script:
         """
         gatk \
@@ -338,6 +339,8 @@ process applyBaseQualityRecalibrator() {
             -I ${bamFile} \
             -O "${bamName}.bqsr.bam" \
             -bqsr "${recalTable}"
+
+        mv ${bamName}.bqsr.bai ${bamName}.bqsr.bam.bai
         """
 }
 
