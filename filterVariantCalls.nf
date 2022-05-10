@@ -26,7 +26,7 @@ workflow {
     vcf = getVcf()
     vcf_index = getVcfIndex(vcf)
 
-    if(params.jointCaller.toLowerCase == "gatk") {
+    if(params.jointCaller.toUpperCase() == "GATK") {
         recalTable_tranches_snp = vqsrSnp(vcf, vcf_index)
         recalTable_tranches_indel = vqsrIndel(vcf, vcf_index)
         recalibrated_vcf_snp = applyVqsrSnp(vcf, vcf_index, recalTable_tranches_snp)
@@ -41,10 +41,10 @@ workflow {
     }
 
     multiallelicSplitted_vcf = splitMultiallelicSnvs(mergedVcf, merged_vcf_index)
-    multiallelicSplitted_vcf_index = indexMultiallelicSplittedVcf(multiallelicSplitted_vcf)
-    leftnormalized_vcf = leftnormalizeSnvs(multiallelicSplitted_vcf, multiallelicSplitted_vcf_index)
+    //multiallelicSplitted_vcf_index = indexMultiallelicSplittedVcf(multiallelicSplitted_vcf)
+    leftnormalized_vcf = leftnormalizeSnvs(multiallelicSplitted_vcf)
     vcfstats = getVcfStats(leftnormalized_vcf)
-    plotVcfStats( vcfstats )
+    //plotVcfStats( vcfstats )
 }
 
 workflow.onComplete { println "\nDone filtering VCF file!\n" }

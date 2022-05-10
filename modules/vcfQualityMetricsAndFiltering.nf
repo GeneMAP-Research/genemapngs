@@ -239,9 +239,8 @@ process splitMultiallelicSnvs() {
     label 'bcftools'
     label 'mediumMemory'
     input:
-        tuple \
-            path(input_vcf), \
-            path(vcf_index)
+        path(input_vcf)
+        path(vcf_index)
     output:
         publishDir path: "${params.outputDir}/vqsr/"
         path "${params.outPrefix}-tmp.vcf.{gz,gz.tbi}"
