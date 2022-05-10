@@ -181,7 +181,7 @@ process mergeVCFs() {
             path(indel_vcf)
     output:
         publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path"${params.outPrefix}.snp.indel.vqsr.vcf.gz"
+        path"${params.outPrefix}.snp.indel.vqsr.vcf.{gz,gz.tbi}"
     script:
         """
         for i in $snp_vcf $indel_vcf; do bcftools index -ft --threads ${task.cpus} \$i; done
@@ -192,8 +192,12 @@ process mergeVCFs() {
             --threads ${task.cpus} \
             -Oz \
             $snp_vcf \
-            $indel_vcf \
-            -o ${params.outPrefix}.snp.indel.vqsr.vcf.gz
+            $indel_vcf | \
+            tee ${params.outPrefix}.snp.indel.vqsr.vcf.gz | \
+            bcftools index \
+            --threads ${task.cpus} \
+            -ft \
+            --output "${params.outPrefix}.snp.indel.vqsr.vcf.gz.tbi"
         """
 }
 
@@ -205,7 +209,7 @@ process filterVCF() {
         path input_vcf
     output:
         publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path "${input_vcf.baseName}.filtered.vcf.gz"
+        path "${input_vcf.baseName}.filtered.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -221,8 +225,12 @@ process filterVCF() {
                     view \
                     -i \'GQ>=${params.minGQ}\' \
                     --threads ${task.cpus} \
-                    -Oz \
-                    -o "${input_vcf.baseName}.filtered.vcf.gz"
+                    -Oz | \
+                    tee "${input_vcf.baseName}.filtered.vcf.gz" | \
+                    bcftools index \
+                    --threads ${task.cpus} \
+                    -ft \
+                    --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
         """
 }
 
@@ -231,11 +239,12 @@ process splitMultiallelicSnvs() {
     label 'bcftools'
     label 'mediumMemory'
     input:
-        path(input_vcf)
-        path(vcf_index)
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
     output:
         publishDir path: "${params.outputDir}/vqsr/"
-        path "${params.outPrefix}-tmp.vcf.gz"
+        path "${params.outPrefix}-tmp.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -243,8 +252,12 @@ process splitMultiallelicSnvs() {
             -m-both \
             --threads ${task.cpus} \
             -Oz \
-            -o "${params.outPrefix}-tmp.vcf.gz" \
-            ${input_vcf}
+            ${input_vcf} | \
+            tee "${params.outPrefix}-tmp.vcf.gz" | \
+            bcftools index \
+            --threads ${task.cpus} \
+            -ft \
+            --output "${params.outPrefix}-tmp.vcf.gz.tbi"            
         """
 }
 
@@ -253,11 +266,12 @@ process leftnormalizeSnvs() {
     label 'bcftools'
     label 'mediumMemory'
     input:
-        path(input_vcf)
-        path(vcf_index)
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
     output:
         publishDir path: "${params.outputDir}/annotate/", mode: 'copy'
-        path "${params.outPrefix}-filtered-leftnorm.vcf.gz"
+        path "${params.outPrefix}-filtered-leftnorm.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -265,8 +279,12 @@ process leftnormalizeSnvs() {
             -f ${params.fastaRef} \
             --threads ${task.cpus} \
             -Oz \
-            -o "${params.outPrefix}-filtered-leftnorm.vcf.gz"  \
-            ${input_vcf}
+            ${input_vcf} | \
+            tee "${params.outPrefix}-filtered-leftnorm.vcf.gz" | \
+            bcftools index \
+            --threads ${task.cpus} \
+            -ft \
+            --output "${params.outPrefix}-filtered-leftnorm.vcf.gz.tbi"
         """
 }
 
@@ -275,7 +293,9 @@ process getVcfStats() {
     label 'bcftools'
     label 'mediumMemory'
     input:
-        path input_vcf
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
     output:
         publishDir path: "${params.outputDir}", mode: 'copy'
         path "${input_vcf.baseName}.vcfstats.txt"

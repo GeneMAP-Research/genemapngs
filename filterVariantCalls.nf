@@ -25,20 +25,26 @@ workflow {
 
     vcf = getVcf()
     vcf_index = getVcfIndex(vcf)
-    recalTable_tranches_snp = vqsrSnp(vcf, vcf_index)
-    recalTable_tranches_indel = vqsrIndel(vcf, vcf_index)
-    recalibrated_vcf_snp = applyVqsrSnp(vcf, vcf_index, recalTable_tranches_snp)
-    recalibrated_vcf_indel = applyVqsrIndel(vcf, vcf_index, recalTable_tranches_indel)
-    recalibrated_vcf_snp.combine(recalibrated_vcf_indel).flatten().set { filter_input }
-    filtered = filterVCF(filter_input).collect()
-    mergedVcf = mergeVCFs(filtered).view()
-    merged_vcf_index = indexFilteredVcf(mergedVcf)
+
+    if(params.jointCaller.toLowerCase == "gatk") {
+        recalTable_tranches_snp = vqsrSnp(vcf, vcf_index)
+        recalTable_tranches_indel = vqsrIndel(vcf, vcf_index)
+        recalibrated_vcf_snp = applyVqsrSnp(vcf, vcf_index, recalTable_tranches_snp)
+        recalibrated_vcf_indel = applyVqsrIndel(vcf, vcf_index, recalTable_tranches_indel)
+        recalibrated_vcf_snp.combine(recalibrated_vcf_indel).flatten().set { filter_input }
+        filtered = filterVCF(filter_input).collect()
+        mergedVcf = mergeVCFs(filtered).view()
+        //merged_vcf_index = indexFilteredVcf(mergedVcf)
+    } else { 
+        mergedVcf = vcf
+        merged_vcf_index = vcf_index
+    }
+
     multiallelicSplitted_vcf = splitMultiallelicSnvs(mergedVcf, merged_vcf_index)
     multiallelicSplitted_vcf_index = indexMultiallelicSplittedVcf(multiallelicSplitted_vcf)
     leftnormalized_vcf = leftnormalizeSnvs(multiallelicSplitted_vcf, multiallelicSplitted_vcf_index)
-
-    //vcfstats = getVcfStats(leftnormalized_vcf)
-    //plotVcfStats( vcfstats )
+    vcfstats = getVcfStats(leftnormalized_vcf)
+    plotVcfStats( vcfstats )
 }
 
 workflow.onComplete { println "\nDone filtering VCF file!\n" }
