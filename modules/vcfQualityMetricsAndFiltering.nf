@@ -248,7 +248,7 @@ process splitMultiallelicSnvs() {
         """
         bcftools \
             norm \
-            -m-both \
+            -m -any \
             --threads ${task.cpus} \
             -Oz \
             ${input_vcf} | \
