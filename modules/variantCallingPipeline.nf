@@ -4,6 +4,11 @@ def getBamFileSet() {
                   .map { bamName, bamFile, bamIndex -> tuple(bamName, bamFile, bamIndex) }
 }
 
+def getGvcfFiles() {
+    return channel.fromPath( params.gvcf_dir + "*.g.vcf.{gz,gz.tbi}" )
+                  .flatten()
+}
+
 process callVariants() {
     tag "processing ${bamName}"
     label 'gatk'

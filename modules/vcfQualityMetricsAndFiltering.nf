@@ -1,5 +1,5 @@
 def getVcf() {
-    return channel.fromPath( params.vcf_dir + params.vcf )
+    return channel.fromPath( params.vcf_dir + "*.vcf.gz" )
 }
 
 def getThousandGenomesReference() {
@@ -13,7 +13,7 @@ def getThousandGenomesReference() {
 process getVcfIndex() {
     tag "BCFTOOLS INDEX: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         path input_vcf
     output:
@@ -201,15 +201,16 @@ process mergeVCFs() {
         """
 }
 
-process filterVCF() {
+process filterGatkCalls() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         path input_vcf
     output:
-        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path "${input_vcf.baseName}.filtered.vcf.{gz,gz.tbi}"
+        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        tuple \
+            path("${input_vcf.baseName}.filtered.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -234,16 +235,54 @@ process filterVCF() {
         """
 }
 
-process splitMultiallelicSnvs() {
+process filterGlnexusCalls() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/vqsr/"
-        path "${params.outPrefix}-tmp.vcf.{gz,gz.tbi}"
+        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        tuple \
+            path("${input_vcf.baseName}.filtered.vcf.gz"), \
+            path("${input_vcf.baseName}.filtered.vcf.gz.tbi")
+    script:
+        """
+        bcftools \
+            view \
+            -i \'FILTER!="MONOALLELIC"\' \
+            --threads ${task.cpus} \
+            ${input_vcf} | \
+            bcftools \
+                view \
+                -i \'DP>=${params.minDP}\' \
+                --threads ${task.cpus} | \
+                bcftools \
+                    view \
+                    -i \'GQ>=${params.minGQ}\' \
+                    --threads ${task.cpus} \
+                    -Oz | \
+                    tee "${input_vcf.baseName}.filtered.vcf.gz" | \
+                    bcftools index \
+                    --threads ${task.cpus} \
+                    -ft \
+                    --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
+        """
+}
+
+process splitMultiallelicSnvs() {
+    tag "VCF supplied: ${input_vcf}"
+    label 'bcftools'
+    label 'longRun'
+    input:
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
+    output:
+        tuple \
+            path("${input_vcf.baseName}-tmp.vcf.gz"), \
+            path("${input_vcf.baseName}-tmp.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -252,25 +291,25 @@ process splitMultiallelicSnvs() {
             --threads ${task.cpus} \
             -Oz \
             ${input_vcf} | \
-            tee "${params.outPrefix}-tmp.vcf.gz" | \
+            tee "${input_vcf.baseName}-tmp.vcf.gz" | \
             bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${params.outPrefix}-tmp.vcf.gz.tbi"            
+            --output "${input_vcf.baseName}-tmp.vcf.gz.tbi"            
         """
 }
 
 process leftnormalizeSnvs() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         tuple \
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/annotate/", mode: 'copy'
-        path "${params.outPrefix}-filtered-leftnorm.vcf.{gz,gz.tbi}"
+        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        path "${input_vcf.baseName}-filtered-leftnorm.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -278,25 +317,52 @@ process leftnormalizeSnvs() {
             -f ${params.fastaRef} \
             --threads ${task.cpus} \
             -Oz \
-            ${input_vcf} | \
-            tee "${params.outPrefix}-filtered-leftnorm.vcf.gz" | \
+            ${input_vcf} | bcftools view -c 2 --threads ${task.cpus} -Oz | \
+            tee "${input_vcf.baseName}-filtered-leftnorm.vcf.gz" | \
             bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${params.outPrefix}-filtered-leftnorm.vcf.gz.tbi"
+            --output "${input_vcf.baseName}-filtered-leftnorm.vcf.gz.tbi"
+        """
+}
+
+process getCleanVcf() {
+    tag "VCF supplied: ${input_vcf}"
+    label 'bcftools'
+    label 'longRun'
+    input:
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
+    output:
+        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        path "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.{gz,gz.tbi}"
+    script:
+        """
+        bcftools \
+            view \
+            --threads ${task.cpus} \
+            -r \$(echo chr{1..22}, chrX | sed 's/[[:space:]]//g') \
+            -Oz \
+            "${input_vcf}" | 
+            tee "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz" | \
+            bcftools index \
+            --threads ${task.cpus} \
+            -ft \
+            --output "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz.tbi"
         """
 }
 
 process getVcfStats() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         tuple \
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}", mode: 'copy'
+        publishDir path: "${params.outputDir}/vcfstats/", mode: 'copy'
         path "${input_vcf.baseName}.vcfstats.txt"
     script:
         """
@@ -316,13 +382,13 @@ process plotVcfStats() {
     input:
         path vcfstat
     output:
-        publishDir path: "${params.outputDir}${vcfstat.baseName}", mode: 'copy'
+        publishDir path: "${params.outputDir}_${vcfstat.baseName}", mode: 'copy'
         path "./*"
     script:
         """
         mkdir -p "${params.outputDir}${vcfstat.baseName}"
         plot-vcfstats \
-           -p "${params.outputDir}${vcfstat.baseName}" \
+           -p . \
            "${vcfstat}"
         """
 }
