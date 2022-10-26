@@ -1,5 +1,5 @@
 def getVCF() {
-    return channel.fromPath( params.annotate_dir + "*.vcf*" )
+    return channel.fromPath( params.annotate_dir + "*.{vcf,vcf.gz}" )
                   .ifEmpty { println "\nERROR: No VCF file found!\n" }
 }
 
@@ -12,7 +12,7 @@ process annovarGRCh37() {
         path(vcfFile)
     output:
         publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
-        path "${vcfFile.baseName}*multianno.{vcf,txt}"
+        path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
         mkdir -p ${params.outputDir}/annovar-output
@@ -20,7 +20,7 @@ process annovarGRCh37() {
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg19 \
-            -out "${vcfFile.baseName}" \
+            -out "${vcfFile.simpleName}" \
             -remove \
             -protocol refGene,knownGene,gwasCatalog,genomicSuperDups,cytoBand,exac03,avsnp150,abraom,dbnsfp33a,regsnpintron,esp6500siv2_all,SAS.sites.2015_08,EUR.sites.2015_08,EAS.sites.2015_08,AMR.sites.2015_08,ALL.sites.2015_08,AFR.sites.2015_08,nci60,clinvar_20210501,refGeneWithVer,revel,mitimpact24,intervar_20180118,hrcr1,gme,gnomad211_exome,gene4denovo201907,dbscsnv11,dbnsfp31a_interpro,cosmic70 \
             -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f \
@@ -29,7 +29,37 @@ process annovarGRCh37() {
             -polish \
             --otherinfo \
             --maxgenethread ${task.cpus} \
-            --thread ${task.cpus} 
+            --thread ${task.cpus}
+        """
+}
+
+process minimalAnnovarGRCh37() {
+    tag "processing ${vcfFile}"
+    label 'annovar'
+    label 'annovarMinimal'
+
+    input:
+        path(vcfFile)
+    output:
+        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        path "${vcfFile.simpleName}*multianno.{vcf,txt}"
+    script:
+        """
+        mkdir -p ${params.outputDir}/annovar-output
+        table_annovar.pl \
+            ${vcfFile} \
+            ${params.annovarDB} \
+            -buildver hg19 \
+            -out "${vcfFile.simpleName}" \
+            -remove \
+            -protocol refGene,knownGene,cytoBand,avsnp150 \
+            -operation g,g,r,f \
+            -nastring '.' \
+            -vcfinput \
+            -polish \
+            --otherinfo \
+            --maxgenethread ${task.cpus} \
+            --thread ${task.cpus}
         """
 }
 
@@ -42,7 +72,7 @@ process annovarGRCh38() {
         path(vcfFile)
     output:
         publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
-        path "${vcfFile.baseName}*multianno.{vcf,txt}"
+        path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
         mkdir -p ${params.outputDir}/annovar-output
@@ -50,7 +80,7 @@ process annovarGRCh38() {
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg38 \
-            -out "${vcfFile.baseName}" \
+            -out "${vcfFile.simpleName}" \
             -remove \
             -protocol refGene,knownGene,ucscGenePfam,cytoBand,keggPathway,dbnsfp42c,dbnsfp31a_interpro,dbscsnv11,intervar_20180118,cosmic70,exac03,gene4denovo201907,gnomad211_exome,kaviar_20150923,ALL.sites.2015_08,gme,abraom,revel,avsnp150,clinvar_20210501,regsnpintron,gwasCatalog \
             -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,r \
@@ -63,4 +93,33 @@ process annovarGRCh38() {
         """
 }
 
-// "${params.outputDir}/annovar-output/""${vcfFile.baseName}" \
+process minimalAnnovarGRCh38() {
+    tag "processing ${vcfFile}"
+    label 'annovar'
+    label 'annovarMinimal'
+    
+    input:
+        path(vcfFile)
+    output:
+        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        path "${vcfFile.simpleName}*multianno.{vcf,txt}"
+    script:
+        """
+        mkdir -p ${params.outputDir}/annovar-output
+        table_annovar.pl \
+            ${vcfFile} \
+            ${params.annovarDB} \
+            -buildver hg38 \
+            -out "${vcfFile.simpleName}" \
+            -remove \
+            -protocol refGene,knownGene,cytoBand,avsnp150 \
+            -operation g,g,r,f \
+            -nastring '.' \
+            -vcfinput \
+            -polish \
+            --otherinfo \
+            --maxgenethread ${task.cpus} \
+            --thread ${task.cpus}
+        """
+}
+

@@ -13,7 +13,7 @@ def getThousandGenomesReference() {
 process getVcfIndex() {
     tag "BCFTOOLS INDEX: ${input_vcf}"
     label 'bcftools'
-    label 'longRun'
+    label 'mediumMemory'
     input:
         path input_vcf
     output:
@@ -194,7 +194,7 @@ process mergeVCFs() {
             $snp_vcf \
             $indel_vcf | \
             tee ${params.outPrefix}.snp.indel.vqsr.vcf.gz | \
-            bcftools index \
+        bcftools index \
             --threads ${task.cpus} \
             -ft \
             --output "${params.outPrefix}.snp.indel.vqsr.vcf.gz.tbi"
@@ -228,7 +228,7 @@ process filterGatkCalls() {
                     --threads ${task.cpus} \
                     -Oz | \
                     tee "${input_vcf.baseName}.filtered.vcf.gz" | \
-                    bcftools index \
+                bcftools index \
                     --threads ${task.cpus} \
                     -ft \
                     --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
@@ -264,7 +264,7 @@ process filterGlnexusCalls() {
                     --threads ${task.cpus} \
                     -Oz | \
                     tee "${input_vcf.baseName}.filtered.vcf.gz" | \
-                    bcftools index \
+                bcftools index \
                     --threads ${task.cpus} \
                     -ft \
                     --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
@@ -292,7 +292,7 @@ process splitMultiallelicSnvs() {
             -Oz \
             ${input_vcf} | \
             tee "${input_vcf.baseName}-tmp.vcf.gz" | \
-            bcftools index \
+        bcftools index \
             --threads ${task.cpus} \
             -ft \
             --output "${input_vcf.baseName}-tmp.vcf.gz.tbi"            
@@ -317,9 +317,14 @@ process leftnormalizeSnvs() {
             -f ${params.fastaRef} \
             --threads ${task.cpus} \
             -Oz \
-            ${input_vcf} | bcftools view -c 2 --threads ${task.cpus} -Oz | \
+            ${input_vcf} | \
+        bcftools \
+            view \
+            -c ${params.minAC} \
+            --threads ${task.cpus} \
+            -Oz | \
             tee "${input_vcf.baseName}-filtered-leftnorm.vcf.gz" | \
-            bcftools index \
+        bcftools index \
             --threads ${task.cpus} \
             -ft \
             --output "${input_vcf.baseName}-filtered-leftnorm.vcf.gz.tbi"
