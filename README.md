@@ -1,9 +1,11 @@
-READS QUALITY, ALIGNMENT, AND VARIANT CALLING WORKFLOW
+READS QUALITY, ALIGNMENT, VARIANT CALLING, VARIANT FILTERING, AND ANNOTATION WORKFLOW
 ---
 This repository contains workflows/pipelines for the following tasks:
 - Reads quality assessment: ```getFastqBamQualityReports.nf```
 - Reads alignment to reference: ```alignReadsToReference.nf``` 
 - Variant calling: ```callVariants.nf``` 
+- Variant fltering: ```filterVariantCalls.nf```
+- Variant annotation: ```annotateVariants.nf```
 
 It takes as input FASTQ or BAM files which are specified in the ```nextflow.config``` file.
 
