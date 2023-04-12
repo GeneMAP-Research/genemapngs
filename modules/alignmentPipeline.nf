@@ -29,6 +29,11 @@ def getInputFastqs() {
                   .map { fqBase, fastq -> tuple(fqBase, fastq) }
 }
 
+def getSEInputFastqs() {
+    return channel.fromFilePairs( params.inputDir + "*.[fq,fastq]*", size: 1 )
+                  .ifEmpty { error "\nERROR: Some fastq files could not be found!\n" }
+                  .map { fqBase, fastq -> tuple(fqBase, fastq.first()) }
+}
 process sortBamByName() {
     tag "processing ${bamName}"
     label 'samtools'
@@ -151,6 +156,38 @@ process dragenAligner() {
 
 //--- TMAP ALIGNER FOR ION TORRENT ---
 
+process tmapAligner() {
+    tag "processing ${fastqName}"
+    label 'tmap'
+    label 'tmap_mem'
+    input:
+        tuple \
+            val(fastqName), \
+            path(fastqFile)
+    output:
+        publishDir path: "${params.output_dir}/bam/"
+        tuple \
+            val(fastqName), \
+            path("${fastqName}.bam")
+    script:
+        """
+        tmap \
+            mapall \
+            -f ${params.fastaRef} \
+            -o 1 \
+            -R ID:${fastqName} \
+            -R SM:${fastqName} \
+            -R PG:TMAP \
+            -R PL:IONTORRENT \
+            --end-repair 1 \
+            -J 25 \
+            -r ${fastqFile} \
+            -n ${task.cpus} \
+            -v stage1 map1 map2 map3 \
+            > "${fastqName}.bam"
+        """
+}
+
 /*  process tmapAligner() {
 *      tag "processing ${fastqName}"
 *      label 'tmap'
@@ -258,6 +295,7 @@ process markDuplicates() {
             path(bamFile), \
             path(bamIndex)
     output:
+        publishDir path: "${params.outputDir}/markedbam/"
         tuple \
             val(bamName), \
             path("${bamName}.dupsMarked.bam")
