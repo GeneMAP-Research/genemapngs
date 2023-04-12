@@ -4,11 +4,13 @@ nextflow.enable.dsl = 2
 
 include {
     getInputFastqs;
+    getSEInputFastqs;
     getInputBams;
     sortBamByName;
     convertBamToFastq;
     alignReadsToReference;
     dragenAligner;
+    tmapAligner;
     convertSamToBam;
     sortBam;
     indexBam;
@@ -25,7 +27,14 @@ workflow {
     println "\nAlignment workflow begins here\n"
     if( params.inputFileType == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
-        fastq = getInputFastqs()
+        if(params.pe == true) {
+            println "PAIRED END READS\n"
+            fastq = getInputFastqs()
+        }
+        else {
+            println "SINGLE END READS\n"
+            fastq = getSEInputFastqs().view()
+        }
     }
     else if( params.inputFileType == "BAM" ) {
         println "INPUT FILE TYPE IS BAM\n"
@@ -38,26 +47,44 @@ workflow {
     if( params.aligner == "DRAGMAP" ) {
         sam = dragenAligner(fastq)
     }
+    else if( params.aligner == "TMAP" ) {
+        sam = tmapAligner(fastq)
+    }
     else {
         sam = alignReadsToReference(fastq)
     }
 
     bam = convertSamToBam(sam)
 
-    if(params.sparkMode == false) {
-        sortedBam = sortBam(bam)
-        indexedBam = indexBam(sortedBam)
-        markedBam = markDuplicates(indexedBam)
-        markedIndexedBam = indexMarkedBam(markedBam)
-        recalTable = recalibrateBaseQualityScores(markedIndexedBam)
-        markedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
-        applyBaseQualityRecalibrator(applyBQSR_input)
-    }
+    if(params.buildVersion == 't2t') {
+        if(params.sparkMode == false) {
+            sortedBam = sortBam(bam)
+            indexedBam = indexBam(sortedBam)
+            markedBam = markDuplicates(indexedBam)
+            markedIndexedBam = indexMarkedBam(markedBam)
+        }
+        else {
+            markedBam = markDuplicatesSpark(bam)
+            fixedBam = fixBamTags(markedBam)
+        }
+    } 
     else {
-        markedBam = markDuplicatesSpark(bam)
-        fixedBam = fixBamTags(markedBam)
-        recalBam = recalibrateBaseQualityScoresSpark(fixedBam).view()
+        if(params.sparkMode == false) {
+            sortedBam = sortBam(bam)
+            indexedBam = indexBam(sortedBam)
+            markedBam = markDuplicates(indexedBam)
+            markedIndexedBam = indexMarkedBam(markedBam)
+            recalTable = recalibrateBaseQualityScores(markedIndexedBam)
+            markedIndexedBam.combine(recalTable, by: 0).set { applyBQSR_input }
+            applyBaseQualityRecalibrator(applyBQSR_input)
+        }
+        else {
+            markedBam = markDuplicatesSpark(bam)
+            fixedBam = fixBamTags(markedBam)
+            recalBam = recalibrateBaseQualityScoresSpark(fixedBam).view()
+        }
     }
+
 }
 
 workflow.onComplete { println "\nDone! Check results in ${params.outputDir}\n" }
