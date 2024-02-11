@@ -39,6 +39,7 @@ process getBamQualityReports() {
 }
 
 process getFastqQualityReports() {
+    //////////////////debug true
     tag "processing ${fastqName}"
     label 'fastqc'
     label 'fastqcMem'
@@ -76,7 +77,38 @@ process getMultiQcFastqReports() {
         """
 }
 
-process readsTrimmer() {
+process trimgalore() {
+    tag "processing ${fastqName}"
+    label 'trimgalore'
+    label 'fastqcMem'
+    input:
+        tuple \
+            val(fastqName), \
+            path(fastqReads)
+    output:
+        publishDir path: "${params.outputDir}/trimmedreads/", mode: 'copy'
+        path("*_val_R{1,2}.fastq.gz")
+    script:
+        (readOne, readTwo) = fastqReads
+        """
+        trim_galore \
+            --paired \
+            --clip_R1 ${params.headcrop} \
+            --clip_R2 ${params.headcrop} \
+            --three_prime_clip_R1 ${params.crop} \
+            --three_prime_clip_R2 ${params.crop} \
+            --basename ${fastqName} \
+            --cores ${task.cpus} \
+            -o . \
+            ${readOne} \
+            ${readTwo} 
+
+        mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
+        mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
+        """
+}
+
+process trimmomatic() {
     tag "processing ${fastqName}"
     label 'trimatic'
     label 'fastqcMem'

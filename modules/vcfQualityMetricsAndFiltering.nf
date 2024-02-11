@@ -209,8 +209,7 @@ process filterGatkCalls() {
         path input_vcf
     output:
         publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
-        tuple \
-            path("${input_vcf.baseName}.filtered.vcf.gz.tbi")
+        path("${input_vcf.baseName}.filtered.vcf.gz")
     script:
         """
         bcftools \
