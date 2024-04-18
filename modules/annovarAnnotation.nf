@@ -11,11 +11,11 @@ process annovarGRCh37() {
     input:
         path(vcfFile)
     output:
-        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        publishDir path: "${params.output_dir}/annovar-output/", mode: 'copy'
         path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
-        mkdir -p ${params.outputDir}/annovar-output
+        mkdir -p ${params.output_dir}/annovar-output
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
@@ -41,11 +41,11 @@ process minimalAnnovarGRCh37() {
     input:
         path(vcfFile)
     output:
-        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        publishDir path: "${params.output_dir}/annovar-output/", mode: 'copy'
         path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
-        mkdir -p ${params.outputDir}/annovar-output
+        mkdir -p ${params.output_dir}/annovar-output
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
@@ -71,11 +71,11 @@ process annovarGRCh38() {
     input:
         path(vcfFile)
     output:
-        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        publishDir path: "${params.output_dir}/annovar-output/", mode: 'copy'
         path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
-        mkdir -p ${params.outputDir}/annovar-output
+        mkdir -p ${params.output_dir}/annovar-output
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
@@ -101,11 +101,11 @@ process minimalAnnovarGRCh38() {
     input:
         path(vcfFile)
     output:
-        publishDir path: "${params.outputDir}/annovar-output/", mode: 'copy'
+        publishDir path: "${params.output_dir}/annovar-output/", mode: 'copy'
         path "${vcfFile.simpleName}*multianno.{vcf,txt}"
     script:
         """
-        mkdir -p ${params.outputDir}/annovar-output
+        mkdir -p ${params.output_dir}/annovar-output
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \

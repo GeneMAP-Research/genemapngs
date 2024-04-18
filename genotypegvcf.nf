@@ -6,8 +6,10 @@ include {
     getGvcfFiles;
     getPedFile;
     combineGvcfs;
-    jointCallVariants;
-    createGenomicsDbPerChromosome;
+    getVcfGenomicIntervals;
+    getGenomicIntervalList;
+    genotypeGvcfs;
+    createGenomicsDbPerInterval;
     callVariantsFromGenomicsDB;
     glnexusJointCaller;
     convertBcfToVcf;
@@ -18,7 +20,7 @@ workflow {
 
     gvcfList = getGvcfFiles().toList()
 
-    if(params.jointCaller == "gatk") {
+    if(params.joint_caller == "gatk") {
 
         channel.from(1..22,'X','Y','M')
                .collect()
@@ -26,8 +28,17 @@ workflow {
                .map { chr -> "chr${chr}" }
                .combine(gvcfList.toList())
                .set { per_chrom_genomicsDB_input }
- 
-        genomicsDB = createGenomicsDbPerChromosome(per_chrom_genomicsDB_input).view()
+
+        if(params.interval == "NULL") {
+            genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
+        }
+        else {
+            genomicInterval = getGenomicIntervalList().flatten().view()
+
+        }
+
+        //genomicsDB = createGenomicsDbPerChromosome(per_chrom_genomicsDB_input)
+        genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
         callVariantsFromGenomicsDB(genomicsDB).view()
 
 /*
@@ -36,10 +47,10 @@ workflow {
         combinedGvcf
             .combine(ped)
             .set { join_call_input }
-        vcf = jointCallVariants(join_call_input)
+        vcf = genotypeGvcfs(join_call_input)
 */
 
-    } else if(params.jointCaller == 'glnexus') {
+    } else if(params.joint_caller == 'glnexus') {
         bcf = glnexusJointCaller(gvcfList).view()
         vcf = convertBcfToVcf(bcf).view()
     } else {
@@ -51,7 +62,7 @@ workflow {
 //    combinedGvcf
 //        .combine(ped)
 //        .set { join_call_input }
-//    vcf = joinCallVariants(join_call_input) 
+//    vcf = genotypeGvcfs(join_call_input) 
 }
 
-workflow.onComplete { println "\nDone! Check results in ${params.outputDir}\n" }
+workflow.onComplete { println "\nDone! Check results in ${params.output_dir}\n" }

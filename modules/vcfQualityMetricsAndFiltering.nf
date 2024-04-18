@@ -36,11 +36,11 @@ process vqsrSnp() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/vqsr-tables/", mode: 'copy'
+        publishDir path: "${params.output_dir}/vqsr-tables/", mode: 'copy'
         tuple \
-              path("${params.outPrefix}.snp.recal"), \
-              path("${params.outPrefix}.snp.recal.idx"), \
-              path("${params.outPrefix}.snp.tranches")
+              path("${params.output_prefix}.snp.recal"), \
+              path("${params.output_prefix}.snp.recal.idx"), \
+              path("${params.output_prefix}.snp.tranches")
     script:
         """
         gatk \
@@ -63,9 +63,9 @@ process vqsrSnp() {
            -an FS \
            -an SOR \
            -mode SNP \
-           -O ${params.outPrefix}.snp.recal \
-           --tranches-file ${params.outPrefix}.snp.tranches \
-           --rscript-file ${params.outPrefix}.snp.plots.R
+           -O ${params.output_prefix}.snp.recal \
+           --tranches-file ${params.output_prefix}.snp.tranches \
+           --rscript-file ${params.output_prefix}.snp.plots.R
         """
 }
 
@@ -77,11 +77,11 @@ process vqsrIndel() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/vqsr-tables/", mode: 'copy'
+        publishDir path: "${params.output_dir}/vqsr-tables/", mode: 'copy'
         tuple \
-              path("${params.outPrefix}.indel.recal"), \
-              path("${params.outPrefix}.indel.recal.idx"), \
-              path("${params.outPrefix}.indel.tranches")
+              path("${params.output_prefix}.indel.recal"), \
+              path("${params.output_prefix}.indel.recal.idx"), \
+              path("${params.output_prefix}.indel.tranches")
     script:
         """
         gatk \
@@ -105,9 +105,9 @@ process vqsrIndel() {
            -an SOR \
            -mode INDEL \
            --max-gaussians 4 \
-           -O ${params.outPrefix}.indel.recal \
-           --tranches-file ${params.outPrefix}.indel.tranches \
-           --rscript-file ${params.outPrefix}.indel.plots.R
+           -O ${params.output_prefix}.indel.recal \
+           --tranches-file ${params.output_prefix}.indel.tranches \
+           --rscript-file ${params.output_prefix}.indel.plots.R
         """
 }
 
@@ -123,8 +123,8 @@ process applyVqsrSnp() {
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path "${params.outPrefix}.snp.vqsr.vcf.gz"
+        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
+        path "${params.output_prefix}.snp.vqsr.vcf.gz"
     script:
         """
         gatk \
@@ -137,7 +137,7 @@ process applyVqsrSnp() {
             --create-output-variant-index true \
             --tranches-file ${tranches} \
             -R ${params.fastaRef} \
-            -O ${params.outPrefix}.snp.vqsr.vcf.gz
+            -O ${params.output_prefix}.snp.vqsr.vcf.gz
         """
 }
 
@@ -153,8 +153,8 @@ process applyVqsrIndel() {
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path "${params.outPrefix}.indel.vqsr.vcf.gz"
+        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
+        path "${params.output_prefix}.indel.vqsr.vcf.gz"
     script:
         """
         gatk \
@@ -167,7 +167,7 @@ process applyVqsrIndel() {
             --create-output-variant-index true \
             --tranches-file ${tranches} \
             -R ${params.fastaRef} \
-            -O ${params.outPrefix}.indel.vqsr.vcf.gz
+            -O ${params.output_prefix}.indel.vqsr.vcf.gz
         """
 }
 
@@ -180,8 +180,8 @@ process mergeVCFs() {
             path(snp_vcf), \
             path(indel_vcf)
     output:
-        publishDir path: "${params.outputDir}/vqsr/", mode: 'copy'
-        path"${params.outPrefix}.snp.indel.vqsr.vcf.{gz,gz.tbi}"
+        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
+        path"${params.output_prefix}.snp.indel.vqsr.vcf.{gz,gz.tbi}"
     script:
         """
         for i in $snp_vcf $indel_vcf; do bcftools index -ft --threads ${task.cpus} \$i; done
@@ -193,11 +193,11 @@ process mergeVCFs() {
             -Oz \
             $snp_vcf \
             $indel_vcf | \
-            tee ${params.outPrefix}.snp.indel.vqsr.vcf.gz | \
+            tee ${params.output_prefix}.snp.indel.vqsr.vcf.gz | \
         bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${params.outPrefix}.snp.indel.vqsr.vcf.gz.tbi"
+            --output "${params.output_prefix}.snp.indel.vqsr.vcf.gz.tbi"
         """
 }
 
@@ -208,7 +208,7 @@ process filterGatkCalls() {
     input:
         path input_vcf
     output:
-        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
         path("${input_vcf.baseName}.filtered.vcf.gz")
     script:
         """
@@ -242,7 +242,7 @@ process filterGlnexusCalls() {
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
         tuple \
             path("${input_vcf.baseName}.filtered.vcf.gz"), \
             path("${input_vcf.baseName}.filtered.vcf.gz.tbi")
@@ -307,7 +307,7 @@ process leftnormalizeSnvs() {
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
         path "${input_vcf.baseName}-filtered-leftnorm.vcf.{gz,gz.tbi}"
     script:
         """
@@ -339,7 +339,7 @@ process getCleanVcf() {
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/filtered/", mode: 'copy'
+        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
         path "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.{gz,gz.tbi}"
     script:
         """
@@ -366,7 +366,7 @@ process getVcfStats() {
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.outputDir}/vcfstats/", mode: 'copy'
+        publishDir path: "${params.output_dir}/vcfstats/", mode: 'copy'
         path "${input_vcf.baseName}.vcfstats.txt"
     script:
         """
@@ -386,11 +386,11 @@ process plotVcfStats() {
     input:
         path vcfstat
     output:
-        publishDir path: "${params.outputDir}_${vcfstat.baseName}", mode: 'copy'
+        publishDir path: "${params.output_dir}_${vcfstat.baseName}", mode: 'copy'
         path "./*"
     script:
         """
-        mkdir -p "${params.outputDir}${vcfstat.baseName}"
+        mkdir -p "${params.output_dir}${vcfstat.baseName}"
         plot-vcfstats \
            -p . \
            "${vcfstat}"
