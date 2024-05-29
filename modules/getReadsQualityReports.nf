@@ -21,12 +21,14 @@ process getAlignmentQualityReports() {
     tag "processing ${bamName}"
     label 'fastqc'
     label 'fastqc_mem'
+    publishDir \
+        path: "${params.output_dir}/fastqc/", \
+        mode: 'copy'
     input:
         tuple \
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.output_dir}/fastqc/", mode: 'copy' 
         path "${bamName}*"
     script:   
         """
@@ -43,12 +45,14 @@ process getFastqQualityReports() {
     tag "processing ${fastqName}"
     label 'fastqc'
     label 'fastqcMem'
+    publishDir \
+        path: "${params.output_dir}/fastqc/", \
+        mode: 'copy'
     input:
         tuple \
             val(fastqName), \
             path(fastqReads)
     output:
-        publishDir path: "${params.output_dir}/fastqc/", mode: 'copy'
         path "${fastqName}*"
     script:
         (readOne, readTwo) = fastqReads
@@ -81,12 +85,13 @@ process trimgalore() {
     tag "processing ${fastqName}"
     label 'trimgalore'
     label 'fastqcMem'
+    publishDir \
+        path: "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
             path(fastqReads)
     output:
-        publishDir path: "${params.output_dir}/trimmedreads/", mode: 'copy'
         path("*_val_R{1,2}.fastq.gz")
     script:
         (readOne, readTwo) = fastqReads
@@ -112,13 +117,14 @@ process trimmomatic() {
     tag "processing ${fastqName}"
     label 'trimatic'
     label 'fastqcMem'
+    publishDir \
+        path: "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
             path(fastqReads), \
             path(adapter)
     output:
-        publishDir path: "${params.output_dir}/trimmedReads/", mode: 'copy'
         path "${fastqName}_trimmed_R{1,2}_P.fq.gz"
     script:
         (readOne, readTwo) = fastqReads

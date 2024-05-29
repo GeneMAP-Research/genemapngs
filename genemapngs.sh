@@ -101,7 +101,14 @@ function check_optional_params() {
 function check_output_dir() {
    output_dir=$1
    if [[ $output_dir == -* ]]  || [[ $output_dir == NULL ]]; then
-      output_dir="${input_dir}/../"
+      #output_dir="${input_dir}/../" 
+      if [ -d ${input_dir} ]; then
+         output_dir="${input_dir}/../"
+      elif [ -d ${gvcf_dir} ]; then
+         output_dir="${gvcf_dir}/../"
+      #elif [ -d ${genomicsdb_workspace_dir} ]; then
+      #   output_dir="${genomicsdb_workspace_dir}/../"
+      fi
       if [[ $output_dir == NULL* ]]; then
          echo "ERROR: Invalid paramter value for option '--output_dir'"
          exit 1;
@@ -184,11 +191,13 @@ function alignusage() {
            
            --ftype		: Input file type; FASTQ, BAM, CRAM [default: FASTQ].
            --input_dir          : (required) Path to FASTQ/BAM/CRAM files.
-           --aligner		: Alignment tool; BWA, DRAGMAP (required) [default: BWA].
+           --aligner		: Alignment tool (required); BWA, DRAGMAP [default: BWA].
            --output_dir		: (optional) [results will be saved to parent of input directory].
            --se			: If FASTQs are single-end (paired-end is assumed by default).
            --wgs		: If data is ehole-genome sequence (it runs whole exome - wes - by default)
-           --spark		: Whether to use GATK spark mode for post-alignment processing (it multi-threads). It defaults to false.
+           --dup_marker         : Duplicate marker tool (optional); sambamba, samtools [default: sambamba]
+           --remove_dup         : Whether to remove duplicates (optional): true, false [default: false]
+           --spark		: Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
            --threads		: number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help		: print this help message.
@@ -237,16 +246,21 @@ function jvarcallusage() {
            options:
            --------
 
-           --gvcf_dir           : (required) Path to pre-existing gVCF files and their indexes (.tbi).
-           --out                : Output prefix (optional) [default: my-ngs].
-           --output_dir         : (optional) [results will be saved to parent of input directory]
-           --jcaller            : Joint sample variant caller; gatk, glnexus [default: gatk]
-           --interval           : (optional) list containing genomic intervals to process. 
-                                  one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>
-           --wgs                : If data is whole-genome sequence (it runs whole exome - wes - by default)
-           --threads            : number of computer cpus to use  [default: 11].
-           --njobs              : (optional) number of jobs to submit at once [default: 10]
-           --help               : print this help message.
+           --gvcf_dir                  : (required if importing gVCFS to genomicsdb for the first time). 
+                                         Path to directory containing gVCF files and their indexes ('.tbi').
+           --update                    : Specify this flag if importing gVCF files to existing genomicsdbs
+           --genomicsdb_workspace_dir  : (required if importing gVCFS to an existing genomicsdb workspace). 
+                                         Path to directory containing genomicsdb workspaces (workspaces must be directories).
+           --batch_size                : (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
+           --out                       : Output prefix (optional) [default: my-ngs].
+           --output_dir                : (optional) [results will be saved to parent of input directory]
+           --jcaller                   : Joint sample variant caller; gatk, glnexus [default: gatk]
+           --interval                  : (optional) list containing genomic intervals to process. 
+                                         one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>
+           --wgs                       : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+           --threads                   : number of computer cpus to use  [default: 11].
+           --njobs                     : (optional) number of jobs to submit at once [default: 10]
+           --help                      : print this help message.
    """
 }
 
@@ -337,7 +351,7 @@ function alignconfig() { #params passed as arguments
 id=$(date +%Y%m%d%H%M%S)
 [ -e ${id}-alignment.config ] && rm ${id}-alignment.config
 
-#alignconfig $pe $exome $aligner $ftype $input_dir $output_dir $threads $njobs
+#alignconfig $pe $exome $aligner $ftype $input_dir $output_dir $dup_marker $remove_dup $spark $threads $njobs
 echo """
 params {
   //genemapngs align workflow parameters
@@ -347,9 +361,11 @@ params {
   input_ftype = '$4'                            // required: FASTQ, BAM, CRAM     (input file type)
   input_dir = '$5'                              // (required) Path to FASTQ/BAM/CRAM files.
   output_dir = '$6'                             // optional (defaults to parent of input directory) ['input_dir/../']
-  spark = $7                                    // (optional) use GATK sprak mode for multi-threaded post-alignment processing; true, false [default: false]
-  threads = ${8}				// number of computer cpus to use  [default: 11]
-  njobs = ${9}                                  // (optional) number of jobs to submit at once [default: 10]
+  dup_marker = '$7'                             // Duplicate marker tool (optional); sambamba, samtools [default: sambamba]
+  remove_dup = '$8'                             // Whether to remove duplicates (optional): true, false [default: false]
+  spark = $9                                    // (optional) use GATK sprak mode for multi-threaded post-alignment processing; true, false [default: false]
+  threads = ${10}				// number of computer cpus to use  [default: 11]
+  njobs = ${11}                                 // (optional) number of jobs to submit at once [default: 10]
 }
 
 `setglobalparams`
@@ -408,26 +424,61 @@ params {
 
 function jvarcallconfig() { #params passed as arguments
 #check and remove config file if it exists
-[ -e ${4}-jvarcall.config ] && rm ${4}-jvarcall.config
+[ -e ${6}-jvarcall.config ] && rm ${6}-jvarcall.config
 
-#svarcallconfig $exome $gvcf_dir $output_dir $output_prefix $jcaller $threads $njobs
+#jvarcallconfig $exome $gvcf_dir $update $genomicsdb_workspace_dir $output_dir $output_prefix $jcaller $interval $threads $njobs ${batch_size}
 echo """
 params {
   //=======================================
   //genemapngs jvarcall workflow parameters
   //=======================================
-  exome = $1                                    // for manta structural variant calling, specify whether WES or WGS
-  gvcf_dir = '$2'                               // (required) Path to gVCF files and their indexes ('.tbi').
-  output_dir = '$3'                             // optional (defaults to parent of input directory) ['input_dir/../']
-  output_prefix = '$4'                          // required
-  joint_caller = '$5'                           // options: gatk, deepvariant
-  interval = '$6'                               // (optional) list containing genomic intervals to process. One chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>
-  threads = ${7}                                // number of computer cpus to use  [default: 11]
-  njobs = ${8}                                  // (optional) number of jobs to submit at once [default: 10]
+  exome = $1                                    
+  gvcf_dir = '$2'                               
+  update = ${3}                                 
+  genomicsdb_workspace_dir = '$4'               
+  batch_size = ${11}                            
+  output_dir = '$5'                             
+  output_prefix = '$6'                          
+  joint_caller = '$7'                           
+  interval = '$8'                               
+  threads = ${9}                                
+  njobs = ${10}                                 
+
+
+  /*****************************************************************************************
+  -exome:
+     for manta structural variant calling, specify whether WES or WGS
+  -gvcf_dir:
+     required if importing gVCFS to genomicsdb for the first time) 
+     Path to directory containing gVCF files and their indexes ('.tbi').
+  -update:
+     whether to add gVCFs to existing genomicsdb workspaces. 
+     If true, 'genomicsdb_workspace_dir' must be provided [defaul: false]
+  -genomicsdb_workspace_dir: 
+     (required if importing gVCFS to an existing genomicsdb workspace) 
+     Path to directory containing genomicsdb workspaces (workspaces must be directories).
+  -batch_size:
+     (optional) number of samples to read into memory by GATK 
+     sample reader per time [default: 50]
+  -output_dir:
+     optional (defaults to parent of input directory) ['gvcf_dir/../']
+  -output_prefix:
+     (required) name to add to output files.
+  -joint_caller:
+     options: gatk, deepvariant [default: gatk]
+  -interval:
+     (optional) list containing genomic intervals to process. 
+     One chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>
+     If not provided, intervals will be creared from CRAM/gVCF header.
+  -threads:
+    (optional) number of computer cpus to use  [default: 11]
+  -njobs:
+      (optional) number of jobs to submit at once [default: 10]
+  *******************************************************************************************/
 }
 
 `setglobalparams`
-""" >> ${4}-jvarcall.config
+""" >> ${6}-jvarcall.config
 }
 
 
@@ -574,7 +625,7 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,se,wgs,spark,aligner:,ftype:,input_dir:,output_dir:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,se,wgs,spark,aligner:,ftype:,input_dir:,output_dir:,dup_marker:,remove_dup:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #defaults
          pe=true                        #// optional: true, false [dfault: ture]   (Whether reads are paired-end or single end)
@@ -583,6 +634,8 @@ else
          input_dir=NULL                 #// required
          output_dir=NULL                #// optional [default: ${input_dir}/../]
          exome=true                     #// for manta structural variant calling, specify whether WES or WGS
+         dup_marker=sambamba            #// optional: samtools, sambamba [default: sambamba]
+         remove_dup=false               #// optional: true, false [default: false]
          spark=false
          threads=11
          njobs=10                       #// (optional) number of jobs to submit at once [default: 10]
@@ -598,6 +651,8 @@ else
                --ftype) ftype="$2"; shift 2;;
                --input_dir) input_dir="$2"; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
+               --dup_marker) dup_marker="$2"; shift 2;;
+               --remove_dup) remove_dup="$2"; shift 2;;
                --threads) threads="$2"; shift 2;;
                --njobs) njobs="$2"; shift 2;;
                --help) shift; alignusage; 1>&2; exit 1;;
@@ -611,7 +666,7 @@ else
          #check_common_required_params $input_dir $output_dir $threads $njobs
          check_required_params input_dir,$input_dir
          check_output_dir $output_dir
-         check_optional_params ftype,$ftype se,$pe wgs,$exome spark,$spark threads,$threads njobs,$njobs
+         check_optional_params ftype,$ftype se,$pe wgs,$exome dup_marker,$dup_marker remove_dup,$remove_dup spark,$spark threads,$threads njobs,$njobs
 
 #         if [[ $aligner == -* ]]; then
 #            echo "ERROR: Invalid paramter value for option '--aligner'"
@@ -632,7 +687,7 @@ else
 
          #args=($pe $exome $spark $aligner $ftype $input_dir $output_dir $output_prefix $scaller $jcaller $threads $njobs)
          #echo ${#args[@]}
-         alignconfig $pe $exome $aligner $ftype $input_dir $output_dir $spark $threads $njobs
+         alignconfig $pe $exome $aligner $ftype $input_dir $output_dir $dup_marker $remove_dup $spark $threads $njobs
 
          #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile -w ${outdir}/work/`
 
@@ -768,7 +823,7 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,gvcf_dir:,output_dir:,out:,jcaller:,interval:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,gvcf_dir:,update,genomicsdb_workspace_dir:,batch_size:,output_dir:,out:,jcaller:,interval:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #defaults
          #ftype=FASTQ                    #// required: FASTQ, BAM, CRAM     (input file type)
@@ -778,7 +833,10 @@ else
          exome=true                     #// for manta structural variant calling, specify whether WES or WGS
          jcaller=gatk                   #// options: gatk, glnexus
          interval=NULL                  #// optional: list containing interval to process
-         gvcf_dir=NULL                 #// (required) path to pre-existing gVCF files
+         gvcf_dir=NULL                  #// (required if creating new genomicsdb workspaces) path to pre-existing gVCF files
+         update=false                   #// whether to add gVCF files to existing genomicsdb workspaces
+         genomicsdb_workspace_dir=NULL  #// (required if updating exisiting enomicsdb workspaces)
+         batch_size=50                  #// (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
          threads=11
          njobs=10                       #// (optional) number of jobs to submit at once [default: 10]
 
@@ -787,12 +845,15 @@ else
          while true; do
             case $1 in
                --wgs) exome=false; shift;;
+               --update) update=true; shift;;
                #--ftype) ftype="$2"; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
                --out) output_prefix="$2"; shift 2;;
                --jcaller) jcaller="$2"; shift 2;;
                --interval) interval="$2"; shift 2;;
                --gvcf_dir) gvcf_dir="$2"; shift 2;;
+               --genomicsdb_workspace_dir) genomicsdb_workspace_dir="$2"; shift 2;;
+               --batch_size) batch_size="$2"; shift 2;;
                --threads) threads="$2"; shift 2;;
                --njobs) njobs="$2"; shift 2;;
                --help) shift; jvarcallusage; 1>&2; exit 1;;
@@ -803,11 +864,34 @@ else
 
          #test arguments values
          #check_common_required_params $input_dir $output_dir $threads $njobs
-         check_required_params gvcf_dir,$gvcf_dir
+         if [[ "${update}" == "true" ]]; then
+            check_required_params gvcf_dir,$gvcf_dir genomicsdb_workspace_dir,$genomicsdb_workspace_dir
+         else
+            check_required_params gvcf_dir,$gvcf_dir
+         fi
          check_output_dir $output_dir
-         check_optional_params output_prefix,$output_prefix jcaller,$jcaller interval,$interval wgs,$exome threads,$threads njobs,$njobs
+         check_optional_params \
+             output_prefix,$output_prefix \
+             jcaller,$jcaller \
+             interval,$interval \
+             wgs,$exome \
+             genomicsdb_workspace_dir,$genomicsdb_workspace_dir \
+             threads,$threads \
+             njobs,$njobs \
+             batch_size,$batch_size
 
-         jvarcallconfig $exome $gvcf_dir $output_dir $output_prefix $jcaller $interval $threads $njobs
+         jvarcallconfig \
+             $exome \
+             $gvcf_dir \
+             $update \
+             $genomicsdb_workspace_dir \
+             $output_dir \
+             $output_prefix \
+             $jcaller \
+             $interval \
+             $threads \
+             $njobs \
+             $batch_size
 
          #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile -w ${outdir}/work/`
 

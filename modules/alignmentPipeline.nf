@@ -8,18 +8,11 @@
 *              file: true,
 *              compress: true )
 *  }
-*  
-*  def concatenateAlignedChunks(alignedChunks) {
-*      return alignedChunks
-*          .collectFile(
-*              name: "concatenated.lgen",
-*              sort: true)
-*  }
 */
 
 def getInputAlignments() {
-    return channel.fromFilePairs( params.input_dir + "/*.[bam,cram]", size: 1 )
-                  .ifEmpty { error "\nERROR: Could not locate BAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
+    return channel.fromFilePairs( [params.input_dir + '/*.bam', params.input_dir + '/*.cram'], size: 1 )
+                  .ifEmpty { error "\nERROR: Could not locate BAM/CRAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
 
@@ -49,6 +42,8 @@ process sortAlignmentByName() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/fastq/sortedalignment/"
     input:
         tuple \
             val(bamName), \
@@ -74,12 +69,13 @@ process convertAlignmentToFastq() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/fastq/"
     input:
         tuple \
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.output_dir}/fastq/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}_R1.fq.gz"), \
@@ -103,6 +99,8 @@ process bwaAligner() {
     label 'bwa_bgzip'
     label 'readAligner'
     cache 'lenient'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
@@ -147,6 +145,8 @@ process dragenAligner() {
     tag "processing ${fastqName}"
     label 'dragmap'
     label 'readAligner'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
@@ -174,12 +174,13 @@ process tmapAligner() {
     tag "processing ${fastqName}"
     label 'tmap'
     label 'tmap_mem'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
             path(fastqFile)
     output:
-        publishDir path: "${params.output_dir}/bam/"
         tuple \
             val(fastqName), \
             path("${fastqName}.bam")
@@ -232,9 +233,8 @@ process fixAlignmentMate() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'fixBam'
-    //publishDir \
-    //    path: "${params.output_dir}/cram/", \
-    //    mode: 'copy'
+    publishDir \
+        path: "${params.output_dir}/cram/matefixed/"
     input:
         tuple \
             val(bamName), \
@@ -286,8 +286,7 @@ process convertBamToCram() {
     label 'samtools'
     label 'samConverter'
     publishDir \
-        path: "${params.output_dir}/cram/", \
-        mode: 'copy'    
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(samBamName), \
@@ -315,6 +314,8 @@ process sortAlignment() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
     input:
         tuple \
             val(bamName), \
@@ -339,6 +340,8 @@ process sortAlignmentToBam() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
     input:
         tuple \
             val(bamName), \
@@ -363,6 +366,8 @@ process sortCram() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
     input:
         tuple \
             val(bamName), \
@@ -436,9 +441,8 @@ process markDuplicates() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
-    //publishDir \
-    //    path: "${params.output_dir}/markedcram/", \
-    //    mode: 'copy'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
@@ -463,6 +467,8 @@ process markDupSambam() {
     tag "processing ${bamName}"
     label 'sambamba'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
@@ -486,13 +492,14 @@ process markDuplicatesGatk() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'duplicateMarker'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
             path(bamIndex)
     output:
-        //publishDir path: "${params.output_dir}/markedbam/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}.dupsMarked.bam"), \
@@ -560,8 +567,7 @@ process applyBaseQualityRecalibrator() {
     label 'gatk'
     label 'applyBqsr'
     publishDir \
-        path: "${params.output_dir}/cram/", \
-        mode: 'copy'
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \
@@ -594,6 +600,8 @@ process markDuplicatesSpark() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'duplicateMarkerSpark'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
@@ -625,6 +633,8 @@ process fixAlignmentTags() {
     beforeScript 'ulimit -c unlimited'
     label 'gatk'
     label 'fixBam'
+    publishDir \
+        path: "${params.output_dir}/cram/tagsfixed/"
     input:
         tuple \
             val(bamName), \
@@ -653,13 +663,14 @@ process recalibrateBaseQualityScoresSpark() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'baseRecalibratorSpark'
+    publishDir \
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.output_dir}/bam/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}.bqsr.bam"), \
