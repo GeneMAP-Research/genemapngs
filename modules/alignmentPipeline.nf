@@ -507,7 +507,7 @@ process markDuplicatesGatk() {
     script:
         """
         gatk \
-            --java-options "-XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ParallelGCThreads=${task.cpus} -XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicates \
             -I ${bamFile} \
             --CREATE_INDEX true \
@@ -549,7 +549,7 @@ process recalibrateBaseQualityScores() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             BaseRecalibrator \
             -I ${bamFile} \
             -O "${bamName}.recal-table.txt" \
@@ -582,7 +582,7 @@ process applyBaseQualityRecalibrator() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             ApplyBQSR \
             -I ${bamFile} \
             -R ${params.fastaRef} \
@@ -615,7 +615,7 @@ process markDuplicatesSpark() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicatesSpark \
             -I ${bamFile} \
             -O "${bamName}.dupsMarked.bam" \
@@ -678,7 +678,7 @@ process recalibrateBaseQualityScoresSpark() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             BQSRPipelineSpark \
             -I ${bamFile} \
             -O "${bamName}.bqsr.bam" \

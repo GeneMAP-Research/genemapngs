@@ -466,7 +466,7 @@ process genotypeGvcfs() {
 }
 
 process callVariantsFromGenomicsDB() {
-    tag "Writing genotypes to ${interval}_${params.output_prefix}.vcf.gz"
+    tag "Writing genotypes to ${interval.simpleName}_${params.output_prefix}.vcf.gz"
     label 'gatk'
     label 'variantCaller'
     publishDir \
@@ -491,6 +491,30 @@ process callVariantsFromGenomicsDB() {
         """
 }
 
+process collectIntervalsPerChromosome() {
+    tag "Collecting intervals per chromosome..."
+    label 'bcftools'
+    label 'variantCaller'
+    input:
+        path(vcfs)
+    output:
+        path("*_vcfs_list.txt")
+    script:
+        """
+        ls *.vcf.gz | awk '{print \$1,\$1}' > vcfs_list.txt
+
+        while read line; do 
+            data=( \$line ); 
+            echo \$(basename \${data[0]} | sed 's/_/ /1' | awk '{print \$1}') \$(readlink \${data[1]})
+        done < vcfs_list.txt > vcf_chr_list.txt
+
+
+        for chrom in \$(awk '{print \$1}' vcf_chr_list.txt | sort -V | uniq); do
+            grep -w \${chrom} vcf_chr_list.txt > \${chrom}_vcfs_list.txt
+        done
+        """
+}
+
 process concatPerIntervalVcfs() {
     tag "Concatenating VCF files into ${params.output_prefix}.vcf.gz..."
     label 'bcftools'
@@ -498,29 +522,28 @@ process concatPerIntervalVcfs() {
     publishDir \
         path: "${params.output_dir}/vcf/"
     input:
-        path(vcfs)
+        path(vcf_list)
     output:
-        path("${params.output_prefix}.vcf.gz")
+        path("*_${params.output_prefix}.vcf.{gz,gz.tbi}")
     script:
         """
-        readlink *.gz > cancat.list
+        chrom=\$(awk '{print \$1}' ${vcf_list} | uniq)
+        awk '{print \$2}' ${vcf_list} > \${chrom}_concat.list
+
+        #readlink *.gz > concat.list
 
         bcftools \
             concat \
             -a \
             --threads ${task.cpus} \
             -Oz \
-            -f cancat.list | \
-        bcftools \
-            sort \
-            -m ${task.memory.toGiga()} \
-            -Oz | \
-        tee ${params.output_prefix}.vcf.gz | \
+            -f \${chrom}_concat.list | \
+        tee \${chrom}_${params.output_prefix}.vcf.gz | \
         bcftools \
             index \
             --threads ${task.cpus} \
             -ft \
-            -o ${params.output_prefix}.vcf.gz.tbi
+            -o \${chrom}_${params.output_prefix}.vcf.gz.tbi
         """
 }
 
