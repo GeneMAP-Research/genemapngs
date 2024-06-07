@@ -1,4 +1,4 @@
-#!/usr/bin/env sh
+#!/usr/bin/bash
 
 #--- genemapgwas workflow wrapper ---#
 
@@ -36,6 +36,19 @@ function usage() {
    """
 }
 
+profiles() {
+   echo """
+           profiles: <executor>,<container>,<reference>
+           ---------
+          executors: local, slurm
+         containers: singularity, aptainer, docker
+          reference: hg19, hg38, t2t
+
+	       e.g.: local,docker,hg19
+	             slurm,singularity,hg38
+
+   """
+}
 
 #####################################################################################################################
 function checkprofile() {
@@ -43,11 +56,11 @@ function checkprofile() {
    #so it takes position $1 here
    if [[ "$1" == "" ]]; then
       echo "ERROR: please specify a profile to use!";
-      usage;
+      profiles;
       exit 1;
    elif [[ $1 == -* ]]; then
       echo "ERROR: please specify a valid profile!";
-      usage;
+      profiles;
       exit 1;
    else
       local profile="$1"
@@ -180,18 +193,18 @@ function alignusage() {
            options:
            --------
            
-           --ftype		: Input file type; FASTQ, BAM, CRAM [default: FASTQ].
+           --ftype              : Input file type; FASTQ, BAM, CRAM [default: FASTQ].
            --input_dir          : (required) Path to FASTQ/BAM/CRAM files.
-           --aligner		: Alignment tool (required); BWA, DRAGMAP [default: BWA].
-           --output_dir		: (optional) [results will be saved to parent of input directory].
-           --se			: If FASTQs are single-end (paired-end is assumed by default).
-           --wgs		: If data is ehole-genome sequence (it runs whole exome - wes - by default)
+           --aligner            : Alignment tool (required); BWA, DRAGMAP [default: BWA].
+           --output_dir         : (optional) [results will be saved to parent of input directory].
+           --se                 : If FASTQs are single-end (paired-end is assumed by default).
+           --wgs                : If data is ehole-genome sequence (it runs whole exome - wes - by default)
            --dup_marker         : Duplicate marker tool (optional); sambamba, samtools [default: sambamba]
            --remove_dup         : Whether to remove duplicates (optional): true, false [default: false]
-           --spark		: Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
-           --threads		: number of computer cpus to use  [default: 11].
+           --spark              : Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
+           --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
-           --help		: print this help message.
+           --help               : print this help message.
    """
 }
 
@@ -297,12 +310,24 @@ id=$(date +%Y%m%d%H%M%S)
 #qcconfig $input_ftype $input_dir $output_dir $threads $njobs
 echo """
 params {
-  //genemapngs qc workflow parameters
-  input_ftype = '$1'                            // required: FASTQ, BAM, CRAM     (input file type)
-  input_dir = '$2'                              // (required) Path to FASTQ/BAM/CRAM files.
-  output_dir = '$3'                             // optional (defaults to parent of input directory) ['input_dir/../']
-  threads = ${4}				// number of computer cpus to use  [default: 4]
-  njobs = ${5}                                  // (optional) number of jobs to submit at once [default: 10]
+  //=======================================================
+  //genemapngs reads quality check (qc) workflow parameters
+  //=======================================================
+
+  input_ftype = '$1'
+  input_dir = '$2'  
+  output_dir = '$3' 
+  threads = ${4}    
+  njobs = ${5}      
+
+
+  /*****************************************************************************************
+  ~ input_ftype: (required) FASTQ, BAM, CRAM.
+  ~ input_dir: (required) Path to FASTQ/BAM/CRAM files.
+  ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../'].
+  ~ threads: (optional) number of computer cpus to use  [default: 8]
+  ~ njobs: (optional) number of jobs to submit at once [default: 10]
+  *******************************************************************************************/
 }
 
 `setglobalparams`
@@ -319,17 +344,34 @@ id=$(date +%Y%m%d%H%M%S)
 #trimconfig $ftype $input_dir $output_dir $trimmer $adapter $min_length $headcrop $crop $threads $njobs
 echo """
 params {
-  //genemapngs trim workflow parameters
-  input_ftype = '$1'                            // required: FASTQ, BAM, CRAM     (input file type)
-  input_dir = '$2'                              // (required) Path to FASTQ/BAM/CRAM files.
-  output_dir = '$3'                             // optional (defaults to parent of input directory) ['input_dir/../']
-  trimmer = '$4'                                // options: trimmomatic, trimgalore [default: trimgalore]
-  adapter = '$5'                                // required if 'trimmomatic' selected [default: NP].
-  min_length = ${6}                             // minimum read leangth to keep [default: 36].
-  headcrop = ${7}                               // number of bases to remove from the start of reads [default: 5].
-  crop = ${8}                                   // number of bases to remove from the end of reads [default: 5].
-  threads = ${9}				// number of computer cpus to use  [default: 8]
-  njobs = ${10}                                 // (optional) number of jobs to submit at once [default: 10]
+  //====================================================
+  //genemapngs reads trimming (trim) workflow parameters
+  //====================================================
+
+  input_ftype = '$1' 
+  input_dir = '$2'   
+  output_dir = '$3'  
+  trimmer = '$4'     
+  adapter = '$5'     
+  min_length = ${6}  
+  headcrop = ${7}    
+  crop = ${8}        
+  threads = ${9}     
+  njobs = ${10}      
+
+
+  /*****************************************************************************************
+  ~ input_ftype: (required) FASTQ, BAM, CRAM.
+  ~ input_dir: (required) Path to FASTQ/BAM/CRAM files.
+  ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../'].
+  ~ trimmer: (optional) trimmomatic, trimgalore [default: trimgalore].
+  ~ adapter: required if 'trimmomatic' selected [default: NP].
+  ~ min_length: (optional) minimum read leangth to keep [default: 36].
+  ~ headcrop: (optional) number of bases to remove from the start of reads [default: 5].
+  ~ crop: (optional) number of bases to remove from the end of reads [default: 5].
+  ~ threads: (optional) number of computer cpus to use  [default: 8]
+  ~ njobs: (optional) number of jobs to submit at once [default: 10]
+  *******************************************************************************************/
 }
 
 `setglobalparams`
