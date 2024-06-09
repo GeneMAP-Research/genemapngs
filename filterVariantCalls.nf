@@ -29,7 +29,7 @@ workflow {
     vcf = getVcf()
     vcf_index = getVcfIndex(vcf)
 
-    if(params.jointCaller.toUpperCase() == "GATK") {
+    if(params.joint_caller.toUpperCase() == "GATK") {
         recalTable_tranches_snp = vqsrSnp(vcf, vcf_index)
         recalTable_tranches_indel = vqsrIndel(vcf, vcf_index)
         recalibrated_vcf_snp = applyVqsrSnp(vcf, vcf_index, recalTable_tranches_snp)

@@ -8,44 +8,42 @@
 *              file: true,
 *              compress: true )
 *  }
-*  
-*  def concatenateAlignedChunks(alignedChunks) {
-*      return alignedChunks
-*          .collectFile(
-*              name: "concatenated.lgen",
-*              sort: true)
-*  }
 */
 
-def getInputBams() {
-    return channel.fromFilePairs( params.inputDir + "/*.bam", size: 1 )
-                  .ifEmpty { error "\nERROR: Could not locate BAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
+def getInputAlignments() {
+    return channel.fromFilePairs( [params.input_dir + '/*.bam', params.input_dir + '/*.cram'], size: 1 )
+                  .ifEmpty { error "\nERROR: Could not locate BAM/CRAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
 
 def getInputCram() {
-    return channel.fromFilePairs( params.inputDir + "/*.cram", size: 1 )
+    return channel.fromFilePairs( params.input_dir + "/*.cram", size: 1 )
                   .ifEmpty { error "\nERROR: Could not locate BAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
 
-// "*_*{1,2}*.[fq,fastq]*"
 def getInputFastqs() {
-    println "\nWARN: Only file pairs with the extension '*_R{1,2}*.fastq.gz' will be read!\nIf there are other files without this extension, please rename them and run the workflow again.\n"
-    return channel.fromFilePairs( params.inputDir + './*R{1,2}*.fastq.gz', size: 2)
-                  .ifEmpty { error "\nERROR: Some fastq files could not be found!\n" }
-                  .map { fqBase, fastq -> tuple(fqBase, fastq) }
+    //println "\nWARN: Only file pairs with the extension '*_R{1,2}*.fastq.gz' will be read!\nIf there are other files without this extension, please rename them and run the workflow again.\n"
+    return channel.fromFilePairs([params.input_dir + '/*_R{1,2}*.fastq.gz', params.input_dir + '/*_R{1,2}*.fastq', params.input_dir + '/*_{1,2}*.fastq.gz', params.input_dir + '/*_{1,2}*.fastq', params.input_dir + '/*_R{1,2}*.fq.gz', params.input_dir + '/*_R{1,2}*.fq', params.input_dir + '/*_{1,2}*.fq.gz', params.input_dir + '/*_{1,2}*.fq'], size: 2)
+           .ifEmpty { 
+               error "\nERROR: Some fastq files could not be found!\n" 
+           }
+           .map { 
+               fqBase, fastq -> tuple(fqBase, fastq) 
+           }
 }
 
 def getSEInputFastqs() {
-    return channel.fromFilePairs( params.inputDir + "/*.[fq,fastq]*", size: 1 )
+    return channel.fromFilePairs( params.input_dir + "/*.[fq,fastq]*", size: 1 )
                   .ifEmpty { error "\nERROR: Some fastq files could not be found!\n" }
                   .map { fqBase, fastq -> tuple(fqBase, fastq.first()) }
 }
-process sortBamByName() {
+process sortAlignmentByName() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/fastq/sortedalignment/"
     input:
         tuple \
             val(bamName), \
@@ -53,30 +51,31 @@ process sortBamByName() {
     output:
         tuple \
             val(bamName), \
-            path("${bamName}.sortedByName.bam")
+            path("${bamName}.sortedByName.cram")
     script:
         """
         samtools \
             sort \
             --reference ${params.fastaRef} \
-            -O BAM \
+            -O CRAM \
             --threads ${task.cpus} \
-            -o "${bamName}.sortedByName.bam" \
+            -o "${bamName}.sortedByName.cram" \
             -n \
             ${bamFile}
         """
 }
 
-process convertBamToFastq() {
+process convertAlignmentToFastq() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/fastq/"
     input:
         tuple \
             val(bamName), \
             path(bamFile)
     output:
-        publishDir path: "${params.outputDir}/fastq/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}_R1.fq.gz"), \
@@ -100,6 +99,8 @@ process bwaAligner() {
     label 'bwa_bgzip'
     label 'readAligner'
     cache 'lenient'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
@@ -144,6 +145,8 @@ process dragenAligner() {
     tag "processing ${fastqName}"
     label 'dragmap'
     label 'readAligner'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
@@ -171,12 +174,13 @@ process tmapAligner() {
     tag "processing ${fastqName}"
     label 'tmap'
     label 'tmap_mem'
+    publishDir \
+        path: "${params.output_dir}/cram/aligned/"
     input:
         tuple \
             val(fastqName), \
             path(fastqFile)
     output:
-        publishDir path: "${params.output_dir}/bam/"
         tuple \
             val(fastqName), \
             path("${fastqName}.bam")
@@ -228,10 +232,9 @@ process tmapAligner() {
 process fixAlignmentMate() {
     tag "processing ${bamName}"
     label 'samtools'
-    label 'bamSorter'
-    //publishDir \
-    //    path: "${params.outputDir}/cram/", \
-    //    mode: 'copy'
+    label 'fixBam'
+    publishDir \
+        path: "${params.output_dir}/cram/matefixed/"
     input:
         tuple \
             val(bamName), \
@@ -283,8 +286,7 @@ process convertBamToCram() {
     label 'samtools'
     label 'samConverter'
     publishDir \
-        path: "${params.outputDir}/cram/", \
-        mode: 'copy'    
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(samBamName), \
@@ -308,10 +310,38 @@ process convertBamToCram() {
         """
 }
 
-process sortBam() {
+process sortAlignment() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+    output:
+        tuple \
+            val(bamName), \
+            path("${bamName}.sorted.cram")
+    script:
+        """
+        samtools \
+            sort \
+            --reference ${params.fastaRef} \
+            -O CRAM \
+            --threads ${task.cpus} \
+            -o "${bamName}.sorted.cram" \
+            ${bamFile}
+        """
+}
+
+process sortAlignmentToBam() {
+    tag "processing ${bamName}"
+    label 'samtools'
+    label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
     input:
         tuple \
             val(bamName), \
@@ -336,6 +366,8 @@ process sortCram() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/sorted/"
     input:
         tuple \
             val(bamName), \
@@ -356,7 +388,7 @@ process sortCram() {
         """
 }
 
-process indexBam() {
+process indexAlignment() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamIndexer'
@@ -368,7 +400,7 @@ process indexBam() {
         tuple \
             val(bamName), \
             path("${bamFile}"), \
-            path("${bamFile}.[bai,crai]")
+            path("*")
     script:
         bam = bamFile[0]
         """
@@ -384,7 +416,7 @@ process indexAndCopyBam() {
     label 'samtools'
     label 'bamIndexer'
     publishDir \
-        path: "${params.outputDir}/bam/", \
+        path: "${params.output_dir}/bam/", \
         mode: 'copy'
     input:
         tuple \
@@ -409,9 +441,8 @@ process markDuplicates() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
-    //publishDir \
-    //    path: "${params.outputDir}/markedcram/", \
-    //    mode: 'copy'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
@@ -431,18 +462,44 @@ process markDuplicates() {
             ${bamName}.dupsMarked.cram
         """
 }
+
+process markDupSambam() {
+    tag "processing ${bamName}"
+    label 'sambamba'
+    label 'bamSorter'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+    output:
+        tuple \
+            val(bamName), \
+            path("${bamName}.dupsMarked.bam")
+    script:
+        """
+        sambamba \
+            markdup \
+            \$([[ ${params.remove_dup} == "true" ]] && echo "-r") \
+            -t ${task.cpus} \
+            ${bamFile} \
+            ${bamName}.dupsMarked.bam
+        """
+}
  
 process markDuplicatesGatk() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'duplicateMarker'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
             path(bamIndex)
     output:
-        //publishDir path: "${params.outputDir}/markedbam/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}.dupsMarked.bam"), \
@@ -450,7 +507,7 @@ process markDuplicatesGatk() {
     script:
         """
         gatk \
-            --java-options "-XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ParallelGCThreads=${task.cpus} -XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicates \
             -I ${bamFile} \
             --CREATE_INDEX true \
@@ -464,7 +521,7 @@ process markDuplicatesGatk() {
 /*
 *
 *  Marked duplicate reads will be indexed 
-*  by indexBam called as indexMarkedBam
+*  by indexAlignment called as indexMarkedAlignment
 *  in the workflow script
 *  
 *  The output will be a tuple suitable for
@@ -479,6 +536,7 @@ process recalibrateBaseQualityScores() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'baseRecalibrator'
+    cache 'lenient'
     input:
         tuple \
             val(bamName), \
@@ -491,7 +549,7 @@ process recalibrateBaseQualityScores() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             BaseRecalibrator \
             -I ${bamFile} \
             -O "${bamName}.recal-table.txt" \
@@ -509,8 +567,7 @@ process applyBaseQualityRecalibrator() {
     label 'gatk'
     label 'applyBqsr'
     publishDir \
-        path: "${params.outputDir}/cram/", \
-        mode: 'copy'
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \
@@ -525,13 +582,14 @@ process applyBaseQualityRecalibrator() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             ApplyBQSR \
             -I ${bamFile} \
+            -R ${params.fastaRef} \
             -O "${bamName}.bqsr.cram" \
             -bqsr "${recalTable}"
 
-        mv ${bamName}.bqsr.crai ${bamName}.bqsr.bam.crai
+        [ -e ${bamName}.bqsr.cram.bai ] && mv ${bamName}.bqsr.cram.bai ${bamName}.bqsr.cram.crai
         """
 }
 
@@ -542,6 +600,8 @@ process markDuplicatesSpark() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'duplicateMarkerSpark'
+    publishDir \
+        path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
@@ -555,7 +615,7 @@ process markDuplicatesSpark() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             MarkDuplicatesSpark \
             -I ${bamFile} \
             -O "${bamName}.dupsMarked.bam" \
@@ -568,11 +628,13 @@ process markDuplicatesSpark() {
         """
 }
 
-process fixBamTags() {
+process fixAlignmentTags() {
     tag "processing ${bamName}"
     beforeScript 'ulimit -c unlimited'
     label 'gatk'
     label 'fixBam'
+    publishDir \
+        path: "${params.output_dir}/cram/tagsfixed/"
     input:
         tuple \
             val(bamName), \
@@ -581,16 +643,18 @@ process fixBamTags() {
     output:
         tuple \
             val(bamName), \
-            path("${bamName}.fixed.bam"), \
-            path("${bamName}.fixed.bai")
+            path("${bamName}.fixed.cram"), \
+            path("${bamName}.fixed.cram.crai")
     script:
         """
         gatk \
             SetNmMdAndUqTags \
             -I ${bamFile} \
-            -O ${bamName}.fixed.bam \
+            -O ${bamName}.fixed.cram \
             -R ${params.fastaRef} \
             --CREATE_INDEX true
+
+        mv ${bamName}.fixed.bai ${bamName}.fixed.cram.crai
         """
 }
 
@@ -599,13 +663,14 @@ process recalibrateBaseQualityScoresSpark() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'baseRecalibratorSpark'
+    publishDir \
+        path: "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
             path(bamIndex)
     output:
-        publishDir path: "${params.outputDir}/bam/", mode: 'copy'
         tuple \
             val(bamName), \
             path("${bamName}.bqsr.bam"), \
@@ -613,7 +678,7 @@ process recalibrateBaseQualityScoresSpark() {
     script:
         """
         gatk \
-            --java-options "-XX:ConcGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus} -Xmx${task.memory.toGiga()}g" \
             BQSRPipelineSpark \
             -I ${bamFile} \
             -O "${bamName}.bqsr.bam" \

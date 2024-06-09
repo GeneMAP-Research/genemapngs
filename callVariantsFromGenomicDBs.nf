@@ -8,12 +8,9 @@ include {
     combineGvcfs;
     getVcfGenomicIntervals;
     getGenomicIntervalList;
-    getGenomicsdbWorkspaces;
     genotypeGvcfs;
     createGenomicsDbPerInterval;
     callVariantsFromGenomicsDB;
-    collectIntervalsPerChromosome;
-    concatPerIntervalVcfs;
     glnexusJointCaller;
     convertBcfToVcf;
 } from "${projectDir}/modules/variantCallingPipeline.nf"
@@ -25,6 +22,13 @@ workflow {
 
     if(params.joint_caller == "gatk") {
 
+        channel.from(1..22,'X','Y','M')
+               .collect()
+               .flatten()
+               .map { chr -> "chr${chr}" }
+               .combine(gvcfList.toList())
+               .set { per_chrom_genomicsDB_input }
+
         if(params.interval == "NULL") {
             genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
         }
@@ -35,15 +39,16 @@ workflow {
 
         //genomicsDB = createGenomicsDbPerChromosome(per_chrom_genomicsDB_input)
         //genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
-        workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
-        genomicInterval
-            .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
-            .join(workspace)
-            .map {workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace)}
-            .set { workspace_interval }
-        vcfs = callVariantsFromGenomicsDB(workspace_interval).collect()
-        vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-        concatPerIntervalVcfs(vcfs_per_chrom_list).view()
+        callVariantsFromGenomicsDB(genomicsDB).view()
+
+/*
+        combinedGvcf = combineGvcfs(gvcfList)
+        ped = getPedFile(combinedGvcf)
+        combinedGvcf
+            .combine(ped)
+            .set { join_call_input }
+        vcf = genotypeGvcfs(join_call_input)
+*/
 
     } else if(params.joint_caller == 'glnexus') {
         bcf = glnexusJointCaller(gvcfList).view()

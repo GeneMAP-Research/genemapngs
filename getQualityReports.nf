@@ -4,29 +4,28 @@ nextflow.enable.dsl = 2
 
 include {
     getInputFastqs;
-    getInputBams;
+    getInputAlignments;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
 include {
     getFastqQualityReports;
-    getBamQualityReports;
+    getAlignmentQualityReports;
     getMultiQcFastqReports;
 } from "${projectDir}/modules/getReadsQualityReports.nf"
 
 workflow {
-    println "\nFASTQ/BAM Quality Reports begins here\n"
-    if( params.inputFileType == "FASTQ" ) {
+    println "\nFASTQ/BAM/CRAM Quality Reports\n"
+    if( params.input_ftype.toUpperCase() == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
         fastq = getInputFastqs()
         fastqReports = getFastqQualityReports(fastq).collect()
         getMultiQcFastqReports(fastqReports)
     }
-    else if( params.inputFileType == "BAM" ) {
-        println "INPUT FILE TYPE IS BAM\n"
-        bam = getInputBams()
-        bamReports = getBamQualityReports(bam).collect()
-        getMultiQcFastqReports(bamReports)
+    else {
+        println "INPUT FILE TYPE IS ALIGNMENT [BAM/CRAM]\n"
+        alignment = getInputAlignments()
+        alignmentReports = getAlignmentQualityReports(alignment).collect()
+        getMultiQcFastqReports(alignmentReports)
     }
-    else { error "\nERROR: You must specify a file type! Options are FASTQ and BAM (case sensitive)\n" }
 }
 

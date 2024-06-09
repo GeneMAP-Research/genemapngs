@@ -26,10 +26,10 @@ include {
 
 workflow {
     println "\nAlignment workflow begins here\n"
-    if( params.inputFileType == "FASTQ" ) {
+    if( params.input_ftype == "FASTQ" ) {
         error: "INPUT FILE TYPE MUST BE BAM\n"
     }
-    else if( params.inputFileType == "BAM" ) {
+    else if( params.input_ftype == "BAM" ) {
         println "INPUT FILE TYPE IS BAM\n"
         inputbam = getInputBams()
         bam = fixAlignmentMate(inputbam)
