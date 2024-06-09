@@ -37,13 +37,13 @@ workflow {
     println "\nAlignment workflow begins here\n"
     if( params.input_ftype.toUpperCase() == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
-        if(params.pe == true) {
-            println "PAIRED END READS\n"
-            fastq = getInputFastqs()
-        }
-        else {
+        if(params.pe == false) {
             println "SINGLE END READS\n"
             fastq = getSEInputFastqs().view()
+        }
+        else {
+            println "PAIRED END READS\n"
+            fastq = getInputFastqs()
         }
     }
     else {
@@ -71,6 +71,12 @@ workflow {
             fixedAlignment = fixAlignmentTags(dupsMarked)
         }
         else {
+
+            //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+            // BQSR is not implemented for t2t reference //
+            // because there are no gatk bundles for yet //
+            //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+
             if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
               sortedAlignment = sortAlignment(alignment)
               dupsMarked = markDuplicates(sortedAlignment)
@@ -94,14 +100,13 @@ workflow {
             if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
               sortedAlignment = sortAlignment(alignment)
               dupsMarked = markDuplicates(sortedAlignment)
-              dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
             }
             else {
               sortedAlignment = sortAlignmentToBam(alignment)
               dupsMarked = markDupSambam(sortedAlignment)
-              dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
             }
 
+            dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
             recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
             dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
             recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)

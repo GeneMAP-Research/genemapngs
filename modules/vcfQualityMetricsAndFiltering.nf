@@ -98,7 +98,7 @@ process vqsrIndel() {
            --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
            --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
            -an QD \
-           -an DP \
+           \$([ ${params.exome} == false ] && echo "-an DP") \
            -an MQRankSum \
            -an ReadPosRankSum \
            -an FS \

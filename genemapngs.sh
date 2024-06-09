@@ -198,7 +198,7 @@ function alignusage() {
            --aligner            : Alignment tool (required); BWA, DRAGMAP [default: BWA].
            --output_dir         : (optional) [results will be saved to parent of input directory].
            --se                 : If FASTQs are single-end (paired-end is assumed by default).
-           --wgs                : If data is ehole-genome sequence (it runs whole exome - wes - by default)
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --dup_marker         : Duplicate marker tool (optional); sambamba, samtools [default: sambamba]
            --remove_dup         : Whether to remove duplicates (optional): true, false [default: false]
            --spark              : Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
@@ -220,7 +220,7 @@ function varcallusage() {
            --scaller            : Single sample variant caller; gatk, deepvariant [default: gatk]
                                   For structural variant calling, use 'svarcall'
            --jcaller            : Joint sample variant caller; gatk, glnexus [default: gatk]
-           --wgs                : If data is ehole-genome sequence (it runs whole exome - wes - by default)
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -237,7 +237,7 @@ function svarcallusage() {
            --out                : Output prefix (optional) [default: my-ngs].
            --output_dir         : (optional) [results will be saved to parent of input directory]
            --scaller            : Single sample variant caller; gatk, deepvariant, dysgu, manta [default: gatk]
-           --wgs                : If data is whole-genome sequence (it runs whole exome - wes - by default)
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -274,6 +274,7 @@ function varfilterusage() {
            options:
            --------
 
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --vcf_dir            : (required) Path to VCF file(s).
            --minDP              : Minimum allele depth [default: 10].
            --minGQ              : Minimun genotype quality [default: 20].
@@ -559,28 +560,31 @@ params {
 
 
 function varfilterconfig() {
-#check and remove config file if it exists
-[ -e ${5}-varfilter.config ] && rm ${5}-varfilter.config
+#varfilterconfig $exome $vcf_dir $minDP $minGQ $minAC $out $output_dir $threads $njobs
 
-#varfilterconfig $vcf_dir $minDP $minGQ $minAC $out $output_dir $threads $njobs
+#check and remove config file if it exists
+[ -e ${6}-varfilter.config ] && rm ${6}-varfilter.config
+
 echo """
 params {
   //============================================================
   //genemapngs variant filtering (varfilter) workflow parameters
   //============================================================
 
-  vcf_dir = '${1}'                              // (required) Path to VCF file(s).
-  minDP = ${2}                                  // Minimum allele depth [default: 10].
-  minGQ = ${3}                                  // Minimun genotype quality [default: 20].
-  minAC = ${4}                                  // Minimun allele count (to remove singletons, set to 2) [default: 1].
-  output_prefix = '${5}'                        // Output prefix (optional) [default: my-varfilter].
-  output_dir = '${6}'                           // (optional) [results will be saved to parent of input directory]
-  joint_caller = '${7}'                         // options: gatk, glnexus
-  threads = ${8}                                // number of computer cpus to use  [default: 4].
-  njobs = ${9}                                  // (optional) number of jobs to submit at once [default: 10]
+  exome = $1        
+  vcf_dir = '${2}'      
+  minDP = ${3}          
+  minGQ = ${4}          
+  minAC = ${5}          
+  output_prefix = '${6}'
+  output_dir = '${7}'   
+  joint_caller = '${8}' 
+  threads = ${9}        
+  njobs = ${10}         
 
 
   /*****************************************************************************************
+  ~ exome: (optional) for VQSR, MQ annotation will be excluded for exome data
   ~ vcf_dir: (required) path to VCF file(s).
   ~ minDP: (optional) minimum allele depth [default: 10]. 
   ~ minGQ: (optional) minimun genotype quality [default: 20]. 
@@ -594,7 +598,7 @@ params {
 }
 
 `setglobalparams`
-""" >> ${5}-varfilter.config
+""" >> ${6}-varfilter.config
 }
 
 
@@ -1054,9 +1058,10 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,vcf_dir:,minDP:,minGQ:,minAC:,out:,output_dir:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,vcf_dir:,minDP:,minGQ:,minAC:,out:,output_dir:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #- defaults
+	 exome=true
          vcf_dir=NULL                            #// (required) Path to FASTQ/BAM/CRAM files.
          minDP=10                                #// Minimum allele depth [default: 10].
          minGQ=20                                #// Minimun genotype quality [default: 20].
@@ -1071,6 +1076,7 @@ else
 
          while true; do
             case $1 in
+               --wgs) exome=false; shift;;
                --vcf_dir) vcf_dir="$2"; shift 2;;
                --minDP) minDP="$2"; shift 2;;
                --minGQ) minGQ="$2"; shift 2;;
@@ -1092,6 +1098,7 @@ else
          check_output_dir \
              $output_dir || \
          check_optional_params \
+             wgs,$exome \
              out,$out \
              minDP,$minDP \
              minGQ,$minGQ \
@@ -1100,6 +1107,7 @@ else
              threads,$threads \
              njobs,$njobs && \
          varfilterconfig \
+             $exome \
 	     $vcf_dir \
 	     $minDP \
 	     $minGQ \
