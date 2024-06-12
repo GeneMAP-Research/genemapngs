@@ -252,8 +252,8 @@ function jvarcallusage() {
 
            --genomicsdb_workspace_dir  : (required) for calling variants from, or imprting gVCFS to, an existing genomicsdb workspace.
                                          Path containing genomicsdb workspaces (workspaces are directories).
-           --imprt                    : Specify this flag if imprting gVCF files to new genomicsdb workspaces. Cannot be used with '--update'
-           --update                    : Specify this flag if imprting gVCF files to existing genomicsdb workspaces. Cannot be used with '--imprt'
+           --imprt                     : Specify this flag if importing gVCF files to new genomicsdb workspaces. Cannot be used with '--update'
+           --update                    : Specify this flag if importing gVCF files to existing genomicsdb workspaces. Cannot be used with '--imprt'
            --gvcf_dir                  : (required if '--update' flag is set). Path containing gVCF files and their indexes ('.tbi').
            --batch_size                : (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
            --out                       : Output prefix (optional) [default: my-ngs].
@@ -319,10 +319,10 @@ params {
   //=======================================================
 
   input_ftype = '$1'
-  input_dir = '$2'  
-  output_dir = '$3' 
-  threads = ${4}    
-  njobs = ${5}      
+  input_dir = '$2'
+  output_dir = '$3'
+  threads = ${4}
+  njobs = ${5}
 
 
   /*****************************************************************************************
@@ -352,16 +352,16 @@ params {
   //genemapngs reads trimming (trim) workflow parameters
   //====================================================
 
-  input_ftype = '$1' 
-  input_dir = '$2'   
-  output_dir = '$3'  
-  trimmer = '$4'     
-  adapter = '$5'     
-  min_length = ${6}  
-  headcrop = ${7}    
-  crop = ${8}        
-  threads = ${9}     
-  njobs = ${10}      
+  input_ftype = '$1'
+  input_dir = '$2'
+  output_dir = '$3'
+  trimmer = '$4'
+  adapter = '$5'
+  min_length = ${6}
+  headcrop = ${7}
+  crop = ${8}
+  threads = ${9}
+  njobs = ${10}
 
 
   /*****************************************************************************************
@@ -395,17 +395,17 @@ params {
   // genemapngs alignment (align) workflow parameters 
   //=================================================
 
-  pe = $1           
-  exome = $2        
-  aligner = '$3'    
+  pe = $1
+  exome = $2
+  aligner = '$3'
   input_ftype = '$4'
-  input_dir = '$5'  
-  output_dir = '$6' 
-  dup_marker = '$7' 
-  remove_dup = '$8' 
-  spark = $9        
-  threads = ${10}   
-  njobs = ${11}                            
+  input_dir = '$5'
+  output_dir = '$6'
+  dup_marker = '$7'
+  remove_dup = '$8'
+  spark = $9
+  threads = ${10}
+  njobs = ${11}
 
 
   /*****************************************************************************************
@@ -445,14 +445,14 @@ params {
   //=================================================================================
 
   mode = 'varcall'
-  exome = $1          
+  exome = $1
   alignment_dir = '$2'
-  output_dir = '$3'   
+  output_dir = '$3'
   output_prefix = '$4'
   single_caller = '$5'
-  joint_caller = '$6' 
-  threads = ${7}      
-  njobs = ${8}        
+  joint_caller = '$6'
+  threads = ${7}
+  njobs = ${8}
 
   
   /*****************************************************************************************
@@ -485,13 +485,13 @@ params {
   //=======================================================================
 
   mode = 'svarcall'
-  exome = $1           
-  alignment_dir = '$2' 
-  output_dir = '$3'   
+  exome = $1
+  alignment_dir = '$2'
+  output_dir = '$3'
   output_prefix = '$4'
   single_caller = '$5'
-  threads = ${6}      
-  njobs = ${7}        
+  threads = ${6}
+  njobs = ${7}
 
 
   /*****************************************************************************************
@@ -580,16 +580,16 @@ params {
   //genemapngs variant filtering (varfilter) workflow parameters
   //============================================================
 
-  exome = $1        
-  vcf_dir = '${2}'      
-  minDP = ${3}          
-  minGQ = ${4}          
-  minAC = ${5}          
+  exome = $1
+  vcf_dir = '${2}'
+  minDP = ${3}
+  minGQ = ${4}
+  minAC = ${5}
   output_prefix = '${6}'
-  output_dir = '${7}'   
-  joint_caller = '${8}' 
-  threads = ${9}        
-  njobs = ${10}         
+  output_dir = '${7}'
+  joint_caller = '${8}'
+  threads = ${9}
+  njobs = ${10}
 
 
   /*****************************************************************************************
@@ -1001,7 +1001,7 @@ else
          if [[ "${imprt}" == "true" ]]; then
 
             ##############################################
-            # If imprting to new genomicsdb workspace,  #
+            # If importing to new genomicsdb workspace,  #
             # then only gvcf_dir is required and update  #
             # must be false                              #
             ##############################################
@@ -1039,7 +1039,7 @@ else
             # If updating existing genomicsdb workspace, #
             # then genomicsdb_workspace_dir and interval #
             # list are also required. Must be the same   #
-            # list as the one used for imprting. imprt #
+            # list as the one used for importing. imprt  #
             # option must necessarily be false           #
             ##############################################
 
