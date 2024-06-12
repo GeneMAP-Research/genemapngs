@@ -43,6 +43,8 @@ params {
     buildVersion = 'hg38'
 }
 EOF
+    else
+      echo -e "\nSomething went wrong!\n"
     fi
 
   elif [[ $build == "hg19" ]]; then
@@ -55,8 +57,11 @@ EOF
     cd refgenome && refdir=$(pwd) && \
     wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/analysisSet/hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
     wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/analysisSet/hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
-    gunzip hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
+    gunzip -f hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
     tar zxvf hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
+    mv hg19.p13.plusMT.no_alt_analysis_set/* . && \
+    rmdir hg19.p13.plusMT.no_alt_analysis_set && \
+    rm hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
     cd ../gatkbundles && gatkdir=$(pwd) && \
     wget -c ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/hg19/1000G_omni2.5.hg19.sites.vcf.{gz,idx.gz} && \
     wget -c ftp://gsapubftp-anonymous@ftp.broadinstitute.org/bundle/hg19/1000G_phase1.indels.hg19.sites.vcf.{gz,idx.gz} && \
@@ -80,6 +85,8 @@ params {
     buildVersion = 'hg19'
 }
 EOF
+    else
+      echo -e "\nSomething went wrong!\n"
     fi
     cd $home
   elif [[ $build == "t2t" ]]; then
