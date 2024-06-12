@@ -9,7 +9,7 @@ This repository contains workflows/pipelines for the following tasks:
 
 Documentation
 ---
-Go [here]("https://genemap-research.github.io/docs/workflows/ngs/") for usage.
+Go [here](https://genemap-research.github.io/docs/workflows/ngs/) for usage.
 
 
 IMPORTANT NOTE
