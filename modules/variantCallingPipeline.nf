@@ -341,6 +341,8 @@ process createGenomicsDb() {
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             GenomicsDBImport \
             -R ${params.fastaRef} \
+            --tmp-dir . \
+            --consolidate true \
             --arguments_file gvcf.list \
             -L intervals.list \
             --genomicsdb-workspace-path ${params.output_prefix}-workspace
@@ -372,6 +374,8 @@ process createGenomicsDbPerInterval() {
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             GenomicsDBImport \
             -R ${params.fastaRef} \
+            --tmp-dir . \
+            --consolidate true \
             --arguments_file gvcf.list \
             -L ${interval} \
             --genomicsdb-workspace-path ${interval.simpleName}_${params.output_prefix}-workspace
@@ -406,6 +410,8 @@ process updateGenomicsDbPerInterval() {
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             GenomicsDBImport \
             -R ${params.fastaRef} \
+            --tmp-dir . \
+            --consolidate true \
             --arguments_file gvcf.list \
             --batch-size ${params.batch_size} \
             -L ${interval} \
@@ -488,6 +494,30 @@ process callVariantsFromGenomicsDB() {
             -L ${interval} \
             -V gendb://${workspace} \
             -O "${interval.simpleName}_${params.output_prefix}.vcf.gz"
+        """
+}
+
+process callVariantsFromExistingGenomicsDB() {
+    tag "Writing genotypes to ${workspaceName}.vcf.gz"
+    label 'gatk'
+    label 'variantCaller'
+    //publishDir \
+    //    path: "${params.output_dir}/vcf/"
+    input:
+        tuple \
+            val(workspaceName), \
+            path(workspace)
+    output:
+        path "${workspaceName}.vcf.{gz,gz.tbi}"
+    script:
+        """
+        gatk \
+            --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+            GenotypeGVCFs \
+            -R ${params.fastaRef} \
+            --dbsnp ${params.dbsnp} \
+            -V gendb://${workspace} \
+            -O "${workspaceName}.vcf.gz"
         """
 }
 
