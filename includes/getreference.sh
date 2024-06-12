@@ -60,6 +60,7 @@ EOF
     gunzip -f hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
     tar zxvf hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
     mv hg19.p13.plusMT.no_alt_analysis_set/* . && \
+    wget -c https://github.com/GeneMAP-Research/genemapngs/blob/main/includes/refidx/hg19/hg19.p13.plusMT.no_alt_analysis_set.{fa.fai,dict} && \
     rmdir hg19.p13.plusMT.no_alt_analysis_set && \
     rm hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
     cd ../gatkbundles && gatkdir=$(pwd) && \
