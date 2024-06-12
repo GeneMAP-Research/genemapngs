@@ -250,17 +250,20 @@ function jvarcallusage() {
            options:
            --------
 
-           --gvcf_dir                  : (required if importing gVCFS to genomicsdb for the first time). 
-                                         Path to directory containing gVCF files and their indexes ('.tbi').
-           --update                    : Specify this flag if importing gVCF files to existing genomicsdbs
-           --genomicsdb_workspace_dir  : (required if importing gVCFS to an existing genomicsdb workspace). 
-                                         Path to directory containing genomicsdb workspaces (workspaces must be directories).
+           --genomicsdb_workspace_dir  : (required) for calling variants from, or imprting gVCFS to, an existing genomicsdb workspace.
+                                         Path containing genomicsdb workspaces (workspaces are directories).
+           --imprt                    : Specify this flag if imprting gVCF files to new genomicsdb workspaces. Cannot be used with '--update'
+           --update                    : Specify this flag if imprting gVCF files to existing genomicsdb workspaces. Cannot be used with '--imprt'
+           --gvcf_dir                  : (required if '--update' flag is set). Path containing gVCF files and their indexes ('.tbi').
            --batch_size                : (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
            --out                       : Output prefix (optional) [default: my-ngs].
            --output_dir                : (optional) [results will be saved to parent of input directory]
            --jcaller                   : Joint sample variant caller; gatk, glnexus [default: gatk]
-           --interval                  : (optional) list containing genomic intervals to process. 
-                                         one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>
+           --interval                  : (required if '--imprt' or '--update' is specified) list containing genomic intervals.
+                                         E.g. one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
+                                         NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1).
+                                         If not provided, intervals will be created from gVCF header. If '--update' is specified and
+                                         interval list is provided, it must be the same as that used for imprt.
            --wgs                       : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads                   : number of computer cpus to use  [default: 11].
            --njobs                     : (optional) number of jobs to submit at once [default: 10]
@@ -510,9 +513,9 @@ params {
 
 function jvarcallconfig() { #params passed as arguments
 #check and remove config file if it exists
-[ -e ${6}-jvarcall.config ] && rm ${6}-jvarcall.config
+[ -e ${8}-jvarcall.config ] && rm ${8}-jvarcall.config
 
-#jvarcallconfig $exome $gvcf_dir $update $genomicsdb_workspace_dir $output_dir $output_prefix $jcaller $interval $threads $njobs ${batch_size}
+#jvarcallconfig $exome $genomicsdb_workspace_dir $imprt $update $gvcf_dir $batch_size $output_dir $output_prefix $jcaller $interval $threads $njobs
 echo """
 params {
   //===============================================================
@@ -520,42 +523,48 @@ params {
   //===============================================================
 
   mode = 'jvarcall'
-  exome = $1                                    
-  gvcf_dir = '$2'                               
-  update = ${3}                                 
-  genomicsdb_workspace_dir = '$4'               
-  batch_size = ${11}                            
-  output_dir = '$5'                             
-  output_prefix = '$6'                          
-  joint_caller = '$7'                           
-  interval = '$8'                               
-  threads = ${9}                                
-  njobs = ${10}                                 
+  exome = $1
+  genomicsdb_workspace_dir = '$2'
+  imprt = $3
+  update = ${4}
+  gvcf_dir = '$5'
+  batch_size = ${6}
+  output_dir = '$7'
+  output_prefix = '$8'
+  joint_caller = '$9'
+  interval = '${10}'
+  threads = ${11}
+  njobs = ${12}
 
 
   /*****************************************************************************************
   ~ exome: (optional) for manta structural variant calling and resource management
-  ~ gvcf_dir: (required) if importing gVCFS to genomicsdb for the first time) path to 
-    directory containing gVCF files and their indexes ('.tbi').
-  ~ update: (optional) whether to add gVCFs to existing genomicsdb workspaces. 
-    If true, 'genomicsdb_workspace_dir' must be provided [defaul: false]
-  ~ genomicsdb_workspace_dir: (required if importing gVCFS to an existing genomicsdb workspace) 
-    Path to directory containing genomicsdb workspaces (workspaces must be directories).
+  ~ genomicsdb_workspace_dir: (required) for calling variants from, or imprting gVCFS to, 
+    an existing genomicsdb workspace. Path containing genomicsdb workspaces 
+    (workspaces are directories).
+  ~ imprt: (optional) whether to add gVCFs to NEW genomicsdb workspaces. 
+    If true, 'gvcf_dir' must be provided [defaul: false]. Must be false if 'update = true'
+  ~ update: (optional) whether to add gVCFs to EXISTING genomicsdb workspaces. 
+    If true, 'gvcf_dir' must be provided [defaul: false]. Cannot be false if 'imprt = true'
+  ~ gvcf_dir: required if 'update = true'. Path containing gVCF files and their indexes ('.tbi').
   ~ batch_size: (optional) number of samples to read into memory by GATK sample reader per 
     time [default: 50]
-  ~ output_dir: (optional) defaults to parent of input directory ['gvcf_dir/../']
+  ~ output_dir: (optional) defaults to parent of input directory 
+    ['genomicsdb_workspace_dir/../' or 'gvcf_dir/../']
   ~ output_prefix: (required) name to add to output files.
   ~ joint_caller: (optional) gatk, deepvariant [default: gatk]
-  ~ interval: (optional) list containing genomic intervals to process. One chromosome name per 
-    line and/or coordinate in bed format: <chr> <start> <stop>. If not provided, intervals will 
-    be creared from CRAM/gVCF header.
+  ~ interval: (required if 'imprt' or 'update' is true) list containing genomic intervals. 
+    E.g. one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
+    NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1).
+    If not provided, intervals will be created from CRAM/gVCF header. If 'update = true' and 
+    interval list is provided, it must be the same as that used for imprt.
   ~ threads: (optional) number of computer cpus to use  [default: 11]
   ~ njobs: (optional) number of jobs to submit at once [default: 10]
   *******************************************************************************************/
 }
 
 `setglobalparams`
-""" >> ${6}-jvarcall.config
+""" >> ${8}-jvarcall.config
 }
 
 
@@ -949,7 +958,7 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,gvcf_dir:,update,genomicsdb_workspace_dir:,batch_size:,output_dir:,out:,jcaller:,interval:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,gvcf_dir:,imprt,update,genomicsdb_workspace_dir:,batch_size:,output_dir:,out:,jcaller:,interval:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #defaults
          #ftype=FASTQ                 
@@ -960,7 +969,8 @@ else
          jcaller=gatk                 
          interval=NULL                
          gvcf_dir=NULL                
-         update=false                  
+         update=false
+         imprt=false  #import appears to be a nextflow reserved variable name
          genomicsdb_workspace_dir=NULL 
          batch_size=50                 
          threads=11
@@ -972,7 +982,7 @@ else
             case $1 in
                --wgs) exome=false; shift;;
                --update) update=true; shift;;
-               #--ftype) ftype="$2"; shift 2;;
+               --imprt) imprt=true; shift;;
                --output_dir) output_dir="${2}"; shift 2;;
                --out) output_prefix="$2"; shift 2;;
                --jcaller) jcaller="$2"; shift 2;;
@@ -988,63 +998,106 @@ else
             esac
          done
 
-	 ##############################################
-	 # If updating existing genomicsdb workspace, #
-         # then genomicsdb_workspace_dir is required  #
-	 ##############################################
-         if [[ "${update}" == "true" ]]; then
+         if [[ "${imprt}" == "true" ]]; then
+
+            ##############################################
+            # If imprting to new genomicsdb workspace,  #
+            # then only gvcf_dir is required and update  #
+            # must be false                              #
+            ##############################################
+
+            update=false
+            check_required_params \
+                gvcf_dir,$gvcf_dir && \
+            check_output_dir \
+                $output_dir || \
+            check_optional_params \
+                output_prefix,$output_prefix \
+                jcaller,$jcaller \
+                interval,$interval \
+                wgs,$exome \
+                threads,$threads \
+                njobs,$njobs \
+                batch_size,$batch_size && \
+            jvarcallconfig \
+                $exome \
+                $genomicsdb_workspace_dir \
+                $imprt \
+                $update \
+                $gvcf_dir \
+                $batch_size \
+                $output_dir \
+                $output_prefix \
+                $jcaller \
+                $interval \
+                $threads \
+                $njobs
+            #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
+         elif [[ "${update}" == "true" ]]; then
+
+            ##############################################
+            # If updating existing genomicsdb workspace, #
+            # then genomicsdb_workspace_dir and interval #
+            # list are also required. Must be the same   #
+            # list as the one used for imprting. imprt #
+            # option must necessarily be false           #
+            ##############################################
+
+            imprt=false
             check_required_params \
 	        gvcf_dir,$gvcf_dir \
+                interval,$interval \
 		genomicsdb_workspace_dir,$genomicsdb_workspace_dir && \
             check_output_dir \
 	        $output_dir || \
             check_optional_params \
                 output_prefix,$output_prefix \
                 jcaller,$jcaller \
-                interval,$interval \
                 wgs,$exome \
                 threads,$threads \
                 njobs,$njobs \
                 batch_size,$batch_size && \
             jvarcallconfig \
                 $exome \
-                $gvcf_dir \
-                $update \
                 $genomicsdb_workspace_dir \
+                $imprt \
+                $update \
+                $gvcf_dir \
+                $batch_size \
                 $output_dir \
                 $output_prefix \
                 $jcaller \
                 $interval \
                 $threads \
-                $njobs \
-                $batch_size
+                $njobs
             #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
          else
             check_required_params \
-	        gvcf_dir,$gvcf_dir && \
+	        genomicsdb_workspace_dir,$genomicsdb_workspace_dir && \
             check_output_dir \
 	        $output_dir || \
             check_optional_params \
+                gvcf_dir,$gvcf_dir \
                 output_prefix,$output_prefix \
                 jcaller,$jcaller \
                 interval,$interval \
                 wgs,$exome \
-                genomicsdb_workspace_dir,$genomicsdb_workspace_dir \
                 threads,$threads \
                 njobs,$njobs \
                 batch_size,$batch_size && \
             jvarcallconfig \
                 $exome \
-                $gvcf_dir \
-                $update \
                 $genomicsdb_workspace_dir \
+                $imprt \
+                $update \
+                $gvcf_dir \
+                $batch_size \
                 $output_dir \
                 $output_prefix \
                 $jcaller \
                 $interval \
                 $threads \
-                $njobs \
-                $batch_size
+                $njobs
             #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
          fi
       ;;
