@@ -123,8 +123,8 @@ function check_output_dir() {
          output_dir="${gvcf_dir}/../"
       elif [ -d ${alignment_dir} ]; then
          output_dir="${alignment_dir}/../"
-      #elif [ -d ${genomicsdb_workspace_dir} ]; then
-      #   output_dir="${genomicsdb_workspace_dir}/../"
+      elif [ -d ${genomicsdb_workspace_dir} ]; then
+         output_dir="${genomicsdb_workspace_dir}/../"
       fi
       if [[ $output_dir == NULL* ]]; then
          echo "ERROR: Invalid paramter value for option '--output_dir'"
