@@ -35,6 +35,7 @@ include {
     combineGvcfs;
     getVcfGenomicIntervals;
     getGenomicIntervalList;
+    getGenomicInterval;
     genotypeGvcfs;
     updateGenomicsDbPerInterval;
 } from "${projectDir}/modules/variantCallingPipeline.nf"
@@ -60,7 +61,7 @@ workflow {
             //-=-=-=-=-=-=
  
            gvcfList = getGvcfFiles().toList()
-
+           genomicInterval = getGenomicInterval()
            genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 
         }
@@ -72,14 +73,7 @@ workflow {
             //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
             gvcfList = getGvcfFiles().toList()        
-
-            if(params.interval == "NULL") {
-                genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
-            }
-            else {
-                genomicInterval = getGenomicIntervalList().flatten()
-            }
-
+            genomicInterval = getGenomicInterval()
             workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
             genomicInterval
                 .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
@@ -87,17 +81,6 @@ workflow {
                 .map {workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace)}
                 .set { workspace_interval }
             updateGenomicsDbPerInterval(workspace_interval, gvcfList)
-
-            //workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
-            //genomicInterval
-            //    .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
-            //    .join(workspace)
-            //    .map {workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace)}
-            //    .set { workspace_interval }
-            //vcfs = callVariantsFromExistingGenomicsDB(workspace).view().collect()
-            //vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-            //concatPerIntervalVcfs(vcfs_per_chrom_list).view()
-
         }
         else { 
 
@@ -180,12 +163,7 @@ workflow {
                     // Using 'GenomicsDBImport' for efficiency
                     //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-                    if(params.interval == "NULL") {
-                        genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
-                    }
-                    else {
-                        genomicInterval = getGenomicIntervalList().flatten()
-                    }
+                    genomicInterval = getGenomicInterval()
 
                     genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 

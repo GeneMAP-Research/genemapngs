@@ -11,19 +11,29 @@ def getCramFileSet() {
 }
 
 def getAlignmentFileSet() {
-    return channel.fromFilePairs( [ params.alignment_dir + "*.{bam,bam.bai}", params.alignment_dir + "*.{cram,cram.crai}" ] , size: 2, flat: true )
+    return channel.fromFilePairs( [ params.alignment_dir + "/*.{bam,bam.bai}", params.alignment_dir + "*.{cram,cram.crai}" ] , size: 2, flat: true )
                   .ifEmpty { error "\nERROR: Could not locate a file! \n" }
                   .map { bamName, bamFile, bamIndex -> tuple(bamName, bamFile, bamIndex) }
 }
 
 def getGvcfFiles() {
-    return channel.fromPath( params.gvcf_dir + "*.{gvcf,g.vcf}.{gz,gz.tbi}" )
+    return channel.fromPath( params.gvcf_dir + "/*.{gvcf,g.vcf}.{gz,gz.tbi}" )
                   .flatten()
 }
 
 def getGenomicsdbWorkspaces() {
-    return channel.fromPath( params.genomicsdb_workspace_dir + "*", type: 'dir' )
+    return channel.fromPath( params.genomicsdb_workspace_dir + "/*", type: 'dir' )
                   .flatten()
+}
+
+
+def getGenomicInterval() {
+    if(params.interval == "NULL") {
+        genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
+    }
+    else {
+        genomicInterval = getGenomicIntervalList().flatten()
+    }
 }
 
 // TO RUN HAPLOTYPE CALLER PER INTERVAL
@@ -355,6 +365,7 @@ process createGenomicsDbPerInterval() {
     label 'variantCaller'
     publishDir \
         path: "${params.output_dir}/genomicsdbs/intervals/"
+        //saveAs {  }
     input:
         path(interval)
         path(gvcfList)
@@ -375,7 +386,7 @@ process createGenomicsDbPerInterval() {
             GenomicsDBImport \
             -R ${params.fastaRef} \
             --tmp-dir . \
-            --consolidate true \
+            --consolidate false \
             --arguments_file gvcf.list \
             -L ${interval} \
             --genomicsdb-workspace-path ${interval.simpleName}_${params.output_prefix}-workspace
@@ -388,6 +399,7 @@ process updateGenomicsDbPerInterval() {
     label 'variantCaller'
     publishDir \
         path: "${params.output_dir}/genomicsdbs/intervals/"
+    //storeDir "${params.output_dir}/genomicsdbs/intervals/"
     input:
         tuple \
             val(workspaceName), \
@@ -411,7 +423,7 @@ process updateGenomicsDbPerInterval() {
             GenomicsDBImport \
             -R ${params.fastaRef} \
             --tmp-dir . \
-            --consolidate true \
+            --consolidate false \
             --arguments_file gvcf.list \
             --batch-size ${params.batch_size} \
             -L ${interval} \
