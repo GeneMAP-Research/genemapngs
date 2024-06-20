@@ -29,7 +29,7 @@ include {
     callVariantsFromGenomicsDB;
     callVariantsFromExistingGenomicsDB;
     collectIntervalsPerChromosome;
-    concatPerIntervalVcfs;
+    concatPerChromIntervalVcfs;
     getGvcfFiles;
     getGenomicsdbWorkspaces;
     combineGvcfs;
@@ -61,7 +61,8 @@ workflow {
             //-=-=-=-=-=-=
  
            gvcfList = getGvcfFiles().toList()
-           genomicInterval = getGenomicInterval()
+
+           genomicInterval = getGenomicInterval(gvcfList)
            genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 
         }
@@ -92,7 +93,7 @@ workflow {
             workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
             vcfs = callVariantsFromExistingGenomicsDB(workspace).view().collect()
             vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-            concatPerIntervalVcfs(vcfs_per_chrom_list).view()
+            concatPerChromIntervalVcfs(vcfs_per_chrom_list).view()
 
         }
     }
@@ -175,7 +176,7 @@ workflow {
                         .set { workspace_interval }
                     vcfs = callVariantsFromGenomicsDB(workspace_interval).collect()
                     vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-                    concatPerIntervalVcfs(vcfs_per_chrom_list).view()
+                    concatPerChromIntervalVcfs(vcfs_per_chrom_list).view()
                 }
             }
 

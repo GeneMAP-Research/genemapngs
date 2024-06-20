@@ -27,7 +27,7 @@ def getGenomicsdbWorkspaces() {
 }
 
 
-def getGenomicInterval() {
+def getGenomicInterval(gvcfList) {
     if(params.interval == "NULL") {
         genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
     }
@@ -557,7 +557,7 @@ process collectIntervalsPerChromosome() {
         """
 }
 
-process concatPerIntervalVcfs() {
+process concatPerChromIntervalVcfs() {
     tag "Concatenating VCF files into ${params.output_prefix}.vcf.gz..."
     label 'bcftools'
     label 'variantCaller'
