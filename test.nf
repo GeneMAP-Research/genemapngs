@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 
 workflow {
 
-  println "\nALIGNMENT WORKFLOW: TEST\n"
+  println "\nGeneMAP NGS WORKFLOW: TEST\n"
 
   println "pe=${params.pe}"
   println "aligner=${params.aligner}"
@@ -47,7 +47,7 @@ process plink() {
   
   script:
     """
-    echo "PLINK2 is used for the test as it is light-weight and easily pulled from docker hub"
+    echo -e "\nPLINK2 is used for the test as it is light-weight and easily pulled from docker hub\n"
 
     plink2 \
       --help \
