@@ -30,7 +30,9 @@ include {
     callVariantsFromExistingGenomicsDB;
     collectIntervalsPerChromosome;
     concatPerChromIntervalVcfs;
+    concatPerChromosomeVcfs;
     getGvcfFiles;
+    getGvcfList;
     getGenomicsdbWorkspaces;
     combineGvcfs;
     getVcfGenomicIntervals;
@@ -60,8 +62,8 @@ workflow {
             // NEW IMPORT
             //-=-=-=-=-=-=
  
-           gvcfList = getGvcfFiles().toList()
-
+           gvcfs = getGvcfFiles().toList()
+           gvcfList = getGvcfList(gvcfs)
            genomicInterval = getGenomicInterval(gvcfList)
            genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 
@@ -73,8 +75,9 @@ workflow {
             // genomicsdb workspaces must already exist and gvcfs must be provided with interval list 
             //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-            gvcfList = getGvcfFiles().toList()        
-            genomicInterval = getGenomicInterval()
+            gvcfs = getGvcfFiles().toList()        
+            gvcfList = getGvcfList(gvcfs)
+            genomicInterval = getGenomicInterval(gvcfList)
             workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
             genomicInterval
                 .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
@@ -93,7 +96,8 @@ workflow {
             workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
             vcfs = callVariantsFromExistingGenomicsDB(workspace).view().collect()
             vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-            concatPerChromIntervalVcfs(vcfs_per_chrom_list).view()
+            vcfs_per_chrom = concatPerChromIntervalVcfs(vcfs_per_chrom_list).collect().view()
+            concatPerChromosomeVcfs(vcfs_per_chrom).view()
 
         }
     }
@@ -176,7 +180,8 @@ workflow {
                         .set { workspace_interval }
                     vcfs = callVariantsFromGenomicsDB(workspace_interval).collect()
                     vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
-                    concatPerChromIntervalVcfs(vcfs_per_chrom_list).view()
+                    vcfs_per_chrom = concatPerChromIntervalVcfs(vcfs_per_chrom_list).collect().view()
+                    concatPerChromosomeVcfs(vcfs_per_chrom).view()
                 }
             }
 
