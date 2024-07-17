@@ -11,19 +11,48 @@ def getCramFileSet() {
 }
 
 def getAlignmentFileSet() {
-    return channel.fromFilePairs( [ params.alignment_dir + "*.{bam,bam.bai}", params.alignment_dir + "*.{cram,cram.crai}" ] , size: 2, flat: true )
+    return channel.fromFilePairs( [ params.alignment_dir + "/*.{bam,bam.bai}", params.alignment_dir + "*.{cram,cram.crai}" ] , size: 2, flat: true )
                   .ifEmpty { error "\nERROR: Could not locate a file! \n" }
                   .map { bamName, bamFile, bamIndex -> tuple(bamName, bamFile, bamIndex) }
 }
 
 def getGvcfFiles() {
-    return channel.fromPath( params.gvcf_dir + "*.{gvcf,g.vcf}.{gz,gz.tbi}" )
+    return channel.fromPath( params.gvcf_dir + "/*.{gvcf,g.vcf}.{gz,gz.tbi}" )
                   .flatten()
 }
 
 def getGenomicsdbWorkspaces() {
-    return channel.fromPath( params.genomicsdb_workspace_dir + "*", type: 'dir' )
+    return channel.fromPath( params.genomicsdb_workspace_dir + "/*", type: 'dir' )
                   .flatten()
+}
+
+
+def getGenomicInterval(gvcfList) {
+    if(params.interval == "NULL") {
+        genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
+    }
+    else {
+        genomicInterval = getGenomicIntervalList().flatten()
+    }
+}
+
+
+process getGvcfList() {
+    tag "creating GVCF list..."
+    input:
+        path(gvcfList)
+    output:
+        path("gvcf.list")
+    script:
+        """
+        readlink *.gz | awk '{print "-V",\$1}' > gvcf.list
+
+        #for file in ${gvcfList}; do
+        #    if [ \${file##*.} != "tbi" ]; then
+        #        echo "-V \$(readlink \${file})";
+        #    fi
+        #done > gvcf.list        
+        """
 }
 
 // TO RUN HAPLOTYPE CALLER PER INTERVAL
@@ -87,11 +116,13 @@ process getVcfGenomicIntervals() {
         path "*"
     script:
         """
-        gvcf=\$(ls *.g.vcf.gz | head -1)
+        #gvcf=\$(ls *.g.vcf.gz | head -1)
+        gvcf=\$(awk '{print \$2}' | head -1)
 
         zgrep '##contig' \$(readlink \${gvcf}) | \
             sed 's/[=,>]/\t/g' | \
             cut -f3,5 | \
+            grep -v '^HLA' | \
         awk '{ if(\$2<=5000000){print \$1,"0",\$2} else{ for(i=0; i<=\$2; i+=5000000) { if(i+4999999<\$2) {print \$1,i,i+4999999} else{print \$1,i,\$2} } } }' \
         > .interval_list
 
@@ -352,9 +383,9 @@ process createGenomicsDb() {
 process createGenomicsDbPerInterval() {
     tag "processing ${interval.simpleName}..."
     label 'gatk'
-    label 'variantCaller'
+    label 'genomisDBImport'
     publishDir \
-        path: "${params.output_dir}/genomicsdbs/intervals/"
+        path: "${params.output_dir}/genomicsdbs/links/"      
     input:
         path(interval)
         path(gvcfList)
@@ -364,11 +395,11 @@ process createGenomicsDbPerInterval() {
             path("${interval.simpleName}_${params.output_prefix}-workspace")
     script:
         """
-        for file in ${gvcfList}; do
-            if [ \${file##*.} != "tbi" ]; then
-                echo "-V \${file}";
-            fi
-        done > gvcf.list
+        #for file in ${gvcfList}; do
+        #    if [ \${file##*.} != "tbi" ]; then
+        #        echo "-V \${file}";
+        #    fi
+        #done > gvcf.list
 
         gatk \
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
@@ -376,7 +407,7 @@ process createGenomicsDbPerInterval() {
             -R ${params.fastaRef} \
             --tmp-dir . \
             --consolidate true \
-            --arguments_file gvcf.list \
+            --arguments_file ${gvcfList} \
             -L ${interval} \
             --genomicsdb-workspace-path ${interval.simpleName}_${params.output_prefix}-workspace
         """
@@ -385,9 +416,7 @@ process createGenomicsDbPerInterval() {
 process updateGenomicsDbPerInterval() {
     tag "processing ${interval.simpleName}..."
     label 'gatk'
-    label 'variantCaller'
-    publishDir \
-        path: "${params.output_dir}/genomicsdbs/intervals/"
+    label 'genomisDBImport'
     input:
         tuple \
             val(workspaceName), \
@@ -400,19 +429,13 @@ process updateGenomicsDbPerInterval() {
             path("${interval.simpleName}_${params.output_prefix}-workspace")
     script:
         """
-        for file in ${gvcfList}; do
-            if [ \${file##*.} != "tbi" ]; then
-                echo "-V \${file}";
-            fi
-        done > gvcf.list
-
         gatk \
             --java-options "-XX:ConcGCThreads=${task.cpus} -Xms${task.memory.toGiga()}g -Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
             GenomicsDBImport \
             -R ${params.fastaRef} \
             --tmp-dir . \
             --consolidate true \
-            --arguments_file gvcf.list \
+            --arguments_file ${gvcfList} \
             --batch-size ${params.batch_size} \
             -L ${interval} \
             --genomicsdb-update-workspace-path ${workspace}
@@ -475,8 +498,8 @@ process callVariantsFromGenomicsDB() {
     tag "Writing genotypes to ${interval.simpleName}_${params.output_prefix}.vcf.gz"
     label 'gatk'
     label 'variantCaller'
-    publishDir \
-        path: "${params.output_dir}/vcf/"
+    //publishDir \
+    //    path: "${params.output_dir}/vcf/"
     input:
         tuple \
             val(workspaceName), \
@@ -545,8 +568,8 @@ process collectIntervalsPerChromosome() {
         """
 }
 
-process concatPerIntervalVcfs() {
-    tag "Concatenating VCF files into ${params.output_prefix}.vcf.gz..."
+process concatPerChromIntervalVcfs() {
+    tag "Concatenating VCF files per chromosome..."
     label 'bcftools'
     label 'variantCaller'
     publishDir \
@@ -574,6 +597,36 @@ process concatPerIntervalVcfs() {
             --threads ${task.cpus} \
             -ft \
             -o \${chrom}_${params.output_prefix}.vcf.gz.tbi
+        """
+}
+
+process concatPerChromosomeVcfs() {
+    tag "Concatenating all VCF files into ${params.output_prefix}.vcf.gz..."
+    label 'bcftools'
+    label 'variantCaller'
+    publishDir \
+        path: "${params.output_dir}/vcf/", \
+        mode: 'move'
+    input:
+        path(vcf_list)
+    output:
+        path("${params.output_prefix}.vcf.{gz,gz.tbi}")
+    script:
+        """
+        readlink *.gz | sort -V > concat.list
+
+        bcftools \
+            concat \
+            -a \
+            --threads ${task.cpus} \
+            -Oz \
+            -f concat.list | \
+        tee ${params.output_prefix}.vcf.gz | \
+        bcftools \
+            index \
+            --threads ${task.cpus} \
+            -ft \
+            -o ${params.output_prefix}.vcf.gz.tbi
         """
 }
 
