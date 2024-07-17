@@ -152,16 +152,17 @@ workflow {
  
                 gvcf = haplotypeCaller(bamFileSet)
             }
-        
-            gvcfList = gvcf.collect().view()
-
 
             if(params.mode == 'varcall') {
+                gvcfList = gvcf.collect()
                 if(params.joint_caller.toUpperCase() == 'GLNEXUS')  {
                     bcf = glnexusJointCaller(gvcfList)
                     vcf = convertBcfToVcf(bcf)
                 }
                 else {
+
+                    gvcfs = gvcf.collect().toList()
+                    gvcfList = getGvcfList(gvcfs)
 
                     //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
                     // JOINT CALLER DEFAULTS TO GATK
