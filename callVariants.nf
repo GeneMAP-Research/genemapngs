@@ -169,7 +169,7 @@ workflow {
                     // Using 'GenomicsDBImport' for efficiency
                     //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-                    genomicInterval = getGenomicInterval()
+                    genomicInterval = getGenomicInterval(gvcfList)
 
                     genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 
