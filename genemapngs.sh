@@ -123,6 +123,8 @@ function check_output_dir() {
          output_dir="${gvcf_dir}/../"
       elif [ -d ${alignment_dir} ]; then
          output_dir="${alignment_dir}/../"
+      elif [ -d ${vcf_dir} ]; then
+         output_dir="${vcf_dir}/../"
       elif [ -d ${genomicsdb_workspace_dir} ]; then
          output_dir="${genomicsdb_workspace_dir}/../"
       fi

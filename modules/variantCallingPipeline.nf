@@ -573,8 +573,8 @@ process concatPerChromIntervalVcfs() {
     label 'bcftools'
     label 'variantCaller'
     storeDir "${params.output_dir}/vcf/"
-    publishDir \
-        path: "${params.output_dir}/vcf/"
+    //publishDir \
+    //    path: "${params.output_dir}/vcf/"
     input:
         path(vcf_list)
     output:
