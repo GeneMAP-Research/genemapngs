@@ -5,6 +5,9 @@ nextflow.enable.dsl = 2
 include {
     getVcf;
     getVcfIndex;
+    splitVcfs;
+    getVcfIndex as indexSnpVcf;
+    getVcfIndex as indexIndelVcf;
     getThousandGenomesReference;
     vqsrSnp;
     vqsrIndel;
@@ -30,13 +33,30 @@ workflow {
     vcf_index = getVcfIndex(vcf)
 
     if(params.joint_caller.toUpperCase() == "GATK") {
-        recalTable_tranches_snp = vqsrSnp(vcf_index)
-        recalTable_tranches_indel = vqsrIndel(vcf_index)
-        recalibrated_vcf_snp = applyVqsrSnp(recalTable_tranches_snp)
-        recalibrated_vcf_indel = applyVqsrIndel(recalTable_tranches_indel)
-        recalibrated_vcf_snp.combine(recalibrated_vcf_indel).flatten().set { filter_input }
-        filtered = filterGatkCalls(filter_input).collect()
-        mergedVcf = mergeVCFs(filtered).view()
+        splitVcfs(vcf_index)
+            .multiMap { snp, indel -> 
+                snp: snp
+                indel: indel
+            }
+            .set { vcf_split }
+        indexSnpVcf(vcf_split.snp)
+            .set { snp_indexed }
+        indexIndelVcf(vcf_split.indel)
+            .set { indel_indexed }
+        vqsrSnp( snp_indexed )
+            .set { recalTable_tranches_snp }
+        vqsrIndel( indel_indexed )
+            .set { recalTable_tranches_indel }
+        applyVqsrSnp(recalTable_tranches_snp).view()
+            .set { recalibrated_vcf_snp }
+        applyVqsrIndel(recalTable_tranches_indel).view()
+            .set { recalibrated_vcf_indel }
+        recalibrated_vcf_snp
+            .combine(recalibrated_vcf_indel, by:0)
+            .view()
+            .set { recalibrated }
+        mergedVcf = mergeVCFs( recalibrated ).view()
+        //filtered = filterGatkCalls(filter_input).collect().view()
         //merged_vcf_index = indexFilteredVcf(mergedVcf)
     } else { 
         vcf.combine(vcf_index).set { vcfstats_input }     
