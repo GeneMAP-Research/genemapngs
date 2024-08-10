@@ -13,11 +13,13 @@ def getThousandGenomesReference() {
 process getVcfIndex() {
     tag "BCFTOOLS INDEX: ${input_vcf}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
     input:
         path input_vcf
     output:
-        path "*.tbi"
+        tuple \
+            path("${input_vcf}"), \
+            path("${input_vcf}.tbi")
     script:
         """
         bcftools \
@@ -28,19 +30,51 @@ process getVcfIndex() {
         """
 }
 
+process splitVcfs() {
+    tag "VCF supplied: ${input_vcf}"
+    label 'gatk'
+    label 'vqsr'
+    publishDir \
+        path: "${params.output_dir}/vcf/", \
+        mode: 'copy'
+    input:
+        tuple \
+            path(input_vcf), \
+            path(vcf_index)
+    output:
+        tuple \
+            path("${input_vcf.simpleName}.snp.vcf.gz"), \
+            path("${input_vcf.simpleName}.indel.vcf.gz")
+    script:
+        """
+        gatk \
+           --java-options "-Xmx${task.memory.toGiga()}g -XX:ParallelGCThreads=${task.cpus}" \
+           SplitVcfs \
+           -I ${input_vcf} \
+           --STRICT false \
+           --SNP_OUTPUT ${input_vcf.simpleName}.snp.vcf.gz \
+           --INDEL_OUTPUT ${input_vcf.simpleName}.indel.vcf.gz
+        """
+}
+
 process vqsrSnp() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
     label 'vqsr'
+    publishDir \
+        path: "${params.output_dir}/vqsr-tables/", \
+        mode: 'copy'
     input:
-        path(input_vcf)
-        path(vcf_index)
-    output:
-        publishDir path: "${params.output_dir}/vqsr-tables/", mode: 'copy'
         tuple \
-              path("${params.output_prefix}.snp.recal"), \
-              path("${params.output_prefix}.snp.recal.idx"), \
-              path("${params.output_prefix}.snp.tranches")
+            path(input_vcf), \
+            path(vcf_index)
+    output:
+        tuple \
+            path(input_vcf), \
+            path(vcf_index), \
+            path("${input_vcf.simpleName}.recal"), \
+            path("${input_vcf.simpleName}.recal.idx"), \
+            path("${input_vcf.simpleName}.tranches")
     script:
         """
         gatk \
@@ -57,15 +91,16 @@ process vqsrSnp() {
            --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
            --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
            -an QD \
+           \$([ ${params.exome} == false ] && echo "-an DP") \
            -an MQ \
            -an MQRankSum \
            -an ReadPosRankSum \
            -an FS \
            -an SOR \
            -mode SNP \
-           -O ${params.output_prefix}.snp.recal \
-           --tranches-file ${params.output_prefix}.snp.tranches \
-           --rscript-file ${params.output_prefix}.snp.plots.R
+           -O ${input_vcf.simpleName}.recal \
+           --tranches-file ${input_vcf.simpleName}.tranches \
+           --rscript-file ${input_vcf.simpleName}.plots.R
         """
 }
 
@@ -73,15 +108,20 @@ process vqsrIndel() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
     label 'vqsr'
+    publishDir \
+        path: "${params.output_dir}/vqsr-tables/", \
+        mode: 'copy'
     input:
-        path(input_vcf)
-        path(vcf_index)
-    output:
-        publishDir path: "${params.output_dir}/vqsr-tables/", mode: 'copy'
         tuple \
-              path("${params.output_prefix}.indel.recal"), \
-              path("${params.output_prefix}.indel.recal.idx"), \
-              path("${params.output_prefix}.indel.tranches")
+            path(input_vcf), \
+            path(vcf_index)
+    output:
+        tuple \
+            path(input_vcf), \
+            path(vcf_index), \
+            path("${input_vcf.simpleName}.recal"), \
+            path("${input_vcf.simpleName}.recal.idx"), \
+            path("${input_vcf.simpleName}.tranches")
     script:
         """
         gatk \
@@ -105,9 +145,9 @@ process vqsrIndel() {
            -an SOR \
            -mode INDEL \
            --max-gaussians 4 \
-           -O ${params.output_prefix}.indel.recal \
-           --tranches-file ${params.output_prefix}.indel.tranches \
-           --rscript-file ${params.output_prefix}.indel.plots.R
+           -O ${input_vcf.simpleName}.recal \
+           --tranches-file ${input_vcf.simpleName}.tranches \
+           --rscript-file ${input_vcf.simpleName}.plots.R
         """
 }
 
@@ -115,16 +155,21 @@ process applyVqsrSnp() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
     label 'applyVqsr'
+    publishDir \
+        path: "${params.output_dir}/vqsr/", \
+        mode: 'copy'
     input:
-        path(input_vcf)
-        path(vcf_index)
         tuple \
+            path(input_vcf), \
+            path(vcf_index), \
             path(recal_table), \
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
-        path "${params.output_prefix}.snp.vqsr.vcf.gz"
+        tuple \
+            val("${input_vcf.simpleName}"), \
+            path("${input_vcf.simpleName}.snp.vqsr.vcf.gz"), \
+            path("${input_vcf.simpleName}.snp.vqsr.vcf.gz.tbi")
     script:
         """
         gatk \
@@ -137,7 +182,7 @@ process applyVqsrSnp() {
             --create-output-variant-index true \
             --tranches-file ${tranches} \
             -R ${params.fastaRef} \
-            -O ${params.output_prefix}.snp.vqsr.vcf.gz
+            -O ${input_vcf.simpleName}.snp.vqsr.vcf.gz
         """
 }
 
@@ -145,16 +190,21 @@ process applyVqsrIndel() {
     tag "VCF supplied: ${input_vcf}"
     label 'gatk'
     label 'applyVqsr'
+    publishDir \
+        path: "${params.output_dir}/vqsr/", \
+        mode: 'copy'
     input:
-        path(input_vcf)
-        path(vcf_index)
         tuple \
+            path(input_vcf), \
+            path(vcf_index), \
             path(recal_table), \
             path(recal_index), \
             path(tranches)   
     output:
-        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
-        path "${params.output_prefix}.indel.vqsr.vcf.gz"
+        tuple \
+            val("${input_vcf.simpleName}"), \
+            path("${input_vcf.simpleName}.indel.vqsr.vcf.gz"), \
+            path("${input_vcf.simpleName}.indel.vqsr.vcf.gz.tbi")
     script:
         """
         gatk \
@@ -167,85 +217,95 @@ process applyVqsrIndel() {
             --create-output-variant-index true \
             --tranches-file ${tranches} \
             -R ${params.fastaRef} \
-            -O ${params.output_prefix}.indel.vqsr.vcf.gz
+            -O ${input_vcf.simpleName}.indel.vqsr.vcf.gz
         """
 }
 
 process mergeVCFs() {
     tag "merging VCFs"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/vqsr/", \
+        mode: 'copy'
     input:
         tuple \
+            val(vcfbase), \
             path(snp_vcf), \
-            path(indel_vcf)
+            path(snp_vcf_index), \
+            path(indel_vcf), \
+            path(indel_vcf_index)
     output:
-        publishDir path: "${params.output_dir}/vqsr/", mode: 'copy'
-        path"${params.output_prefix}.snp.indel.vqsr.vcf.{gz,gz.tbi}"
+        tuple \
+            val(vcfbase), \
+            path("${vcfbase}.snp.indel.vqsr.vcf.gz"), \
+            path("${vcfbase}.snp.indel.vqsr.vcf.gz.tbi")
     script:
         """
-        for i in $snp_vcf $indel_vcf; do bcftools index -ft --threads ${task.cpus} \$i; done
-
         bcftools \
             concat \
-            -a -d all \
+            -a \
+            -d all \
             --threads ${task.cpus} \
             -Oz \
             $snp_vcf \
             $indel_vcf | \
-            tee ${params.output_prefix}.snp.indel.vqsr.vcf.gz | \
+            tee ${vcfbase}.snp.indel.vqsr.vcf.gz | \
         bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${params.output_prefix}.snp.indel.vqsr.vcf.gz.tbi"
+            --output "${vcfbase}.snp.indel.vqsr.vcf.gz.tbi"
         """
 }
 
 process filterGatkCalls() {
-    tag "VCF supplied: ${input_vcf}"
+    tag "VCF supplied: ${vcfbase}"
     label 'bcftools'
     label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/filtered/", \
+        mode: 'copy'
     input:
-        path input_vcf
+        tuple \
+            val(vcfbase), \
+            path(vcf), \
+            path(index)
     output:
-        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
-        path("${input_vcf.baseName}.filtered.vcf.gz")
+        tuple \
+            val("${vcfbase}"), \
+            path("${vcfbase}.filtered.vcf.gz")
     script:
         """
         bcftools \
             view \
             -i \'FILTER=="PASS"\' \
             --threads ${task.cpus} \
-            ${input_vcf} | \
-            bcftools \
-                view \
-                -i \'INFO/DP>=${params.minDP}\' \
-                --threads ${task.cpus} | \
-                bcftools \
-                    view \
-                    -i \'GQ>=${params.minGQ}\' \
-                    --threads ${task.cpus} \
-                    -Oz | \
-                    tee "${input_vcf.baseName}.filtered.vcf.gz" | \
-                bcftools index \
-                    --threads ${task.cpus} \
-                    -ft \
-                    --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
+            -Oz \
+            ${vcf} | \
+        tee "${vcfbase}.filtered.vcf.gz" | \
+        bcftools \
+            index \
+            --threads ${task.cpus} \
+            -ft \
+            --output "${vcfbase}.filtered.vcf.gz.tbi"
         """
 }
+
 
 process filterGlnexusCalls() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
     label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/filtered/", \
+        mode: 'copy'
     input:
         path(input_vcf)
         path(vcf_index)
     output:
-        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
         tuple \
-            path("${input_vcf.baseName}.filtered.vcf.gz"), \
-            path("${input_vcf.baseName}.filtered.vcf.gz.tbi")
+            path("${input_vcf.simpleName}.filtered.vcf.gz"), \
+            path("${input_vcf.simpleName}.filtered.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -262,11 +322,11 @@ process filterGlnexusCalls() {
                     -i \'GQ>=${params.minGQ}\' \
                     --threads ${task.cpus} \
                     -Oz | \
-                    tee "${input_vcf.baseName}.filtered.vcf.gz" | \
+                    tee "${input_vcf.simpleName}.filtered.vcf.gz" | \
                 bcftools index \
                     --threads ${task.cpus} \
                     -ft \
-                    --output "${input_vcf.baseName}.filtered.vcf.gz.tbi"
+                    --output "${input_vcf.simpleName}.filtered.vcf.gz.tbi"
         """
 }
 
@@ -280,8 +340,8 @@ process splitMultiallelicSnvs() {
             path(vcf_index)
     output:
         tuple \
-            path("${input_vcf.baseName}-tmp.vcf.gz"), \
-            path("${input_vcf.baseName}-tmp.vcf.gz.tbi")
+            path("${input_vcf.simpleName}-tmp.vcf.gz"), \
+            path("${input_vcf.simpleName}-tmp.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -290,11 +350,11 @@ process splitMultiallelicSnvs() {
             --threads ${task.cpus} \
             -Oz \
             ${input_vcf} | \
-            tee "${input_vcf.baseName}-tmp.vcf.gz" | \
+            tee "${input_vcf.simpleName}-tmp.vcf.gz" | \
         bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${input_vcf.baseName}-tmp.vcf.gz.tbi"            
+            --output "${input_vcf.simpleName}-tmp.vcf.gz.tbi"            
         """
 }
 
@@ -302,13 +362,15 @@ process leftnormalizeSnvs() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
     label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/filtered/", \
+        mode: 'copy'
     input:
         tuple \
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
-        path "${input_vcf.baseName}-filtered-leftnorm.vcf.{gz,gz.tbi}"
+        path "${input_vcf.simpleName}-filtered-leftnorm.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -322,11 +384,11 @@ process leftnormalizeSnvs() {
             -c ${params.minAC} \
             --threads ${task.cpus} \
             -Oz | \
-            tee "${input_vcf.baseName}-filtered-leftnorm.vcf.gz" | \
+            tee "${input_vcf.simpleName}-filtered-leftnorm.vcf.gz" | \
         bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${input_vcf.baseName}-filtered-leftnorm.vcf.gz.tbi"
+            --output "${input_vcf.simpleName}-filtered-leftnorm.vcf.gz.tbi"
         """
 }
 
@@ -334,13 +396,15 @@ process getCleanVcf() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
     label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/filtered/", \
+        mode: 'copy'
     input:
         tuple \
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.output_dir}/filtered/", mode: 'copy'
-        path "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.{gz,gz.tbi}"
+        path "${input_vcf.simpleName}-filtered-leftnorm-clean.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -349,11 +413,11 @@ process getCleanVcf() {
             -r \$(echo chr{1..22}, chrX | sed 's/[[:space:]]//g') \
             -Oz \
             "${input_vcf}" | 
-            tee "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz" | \
+            tee "${input_vcf.simpleName}-filtered-leftnorm-clean.vcf.gz" | \
             bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz.tbi"
+            --output "${input_vcf.simpleName}-filtered-leftnorm-clean.vcf.gz.tbi"
         """
 }
 
@@ -361,13 +425,15 @@ process getVcfStats() {
     tag "VCF supplied: ${input_vcf}"
     label 'bcftools'
     label 'longRun'
+    publishDir \
+        path: "${params.output_dir}/vcfstats/", \
+        mode: 'copy'
     input:
         tuple \
             path(input_vcf), \
             path(vcf_index)
     output:
-        publishDir path: "${params.output_dir}/vcfstats/", mode: 'copy'
-        path "${input_vcf.baseName}.vcfstats.txt"
+        path "${input_vcf.simpleName}.vcfstats.txt"
     script:
         """
         bcftools \
@@ -375,22 +441,24 @@ process getVcfStats() {
             -F "${params.fastaRef}" \
             -s - \
             "${input_vcf}" > \
-            "${input_vcf.baseName}.vcfstats.txt"
+            "${input_vcf.simpleName}.vcfstats.txt"
         """
 }
 
 process plotVcfStats() {
     tag "Processing ${vcfstat}"
     label 'bcftools'
-    label 'mediumMemory'
+    label 'longRun'
+    publishDir \
+        path: "${params.output_dir}_${vcfstat.simpleName}", \
+        mode: 'copy'
     input:
         path vcfstat
     output:
-        publishDir path: "${params.output_dir}_${vcfstat.baseName}", mode: 'copy'
         path "./*"
     script:
         """
-        mkdir -p "${params.output_dir}${vcfstat.baseName}"
+        mkdir -p "${params.output_dir}${vcfstat.simpleName}"
         plot-vcfstats \
            -p . \
            "${vcfstat}"
