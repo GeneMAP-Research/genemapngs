@@ -2,11 +2,40 @@
 
 #--- genemapgwas workflow wrapper ---#
 
+ANSIRESET='\e[0m'
+ANSIRED='\e[31m'
+ANSIGRN='\e[32m'
+ANSIYLW='\e[33m'
+ANSIBLU='\e[34m'
+ANSIPPL='\e[35m'
+ANSIGRY='\e[2m'
+
+function checkprojectname() {
+  projectdir=$(echo $(dirname ${0}))
+  if [ ! -e ${projectdir}/nextflow.config ]; then
+    echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
+    echo "See the documentation for how to run the workflow.\n"
+    exit 1
+  else
+    pn=( $(grep -w 'project_name =' ${projectdir}/nextflow.config | sed "s|'||g") )
+    if [[ ${pn[2]} == NULL ]]; then
+      echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
+      sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
+      projectname=myproject
+      sleep 2
+    else
+      projectname=${pn}
+    fi
+  fi
+}
+
+checkprojectname
+
 function usage() {
-   echo """
-   ===================================================================
-   GeneMAP-NGS ~ a wrapper for the nextflow-based genemapngs workflow
-   ===================================================================
+   echo -e """
+   ${ANSIGRY}===================================================================${ANSIRESET}
+   ${ANSIBLU}Gene${ANSIRED}MAP${ANSIPPL}-NGS${ANSIRESET} ~ ${ANSIGRN}a wrapper for the nextflow-based genemapngs workflow${ANSIRESET}
+   ${ANSIGRY}===================================================================${ANSIRESET}
 
    Usage: genemapngs <workflow> <profile> [options] ...
 
@@ -220,6 +249,11 @@ function varcallusage() {
            --scaller            : Single sample variant caller; gatk, deepvariant [default: gatk]
                                   For structural variant calling, use 'svarcall'
            --jcaller            : Joint sample variant caller; gatk, glnexus [default: gatk]
+           --batch_size         : (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
+           --interval           : List containing genomic intervals, one chromosome name per line and/or coordinate 
+                                  in bed format: <chr> <start> <stop>.
+                                  NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+                                  If not provided, intervals will be created from gVCF header.
            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
@@ -402,7 +436,7 @@ params {
   input_dir = '$5'
   output_dir = '$6'
   dup_marker = '$7'
-  remove_dup = '$8'
+  remove_dup = $8
   spark = $9
   threads = ${10}
   njobs = ${11}
@@ -463,6 +497,10 @@ params {
   ~ output_prefix: (optional) project name.
   ~ single_caller: (optional) gatk, deepvariant [default: gatk]
   ~ joint_caller: (optional) gatk, glnexus [default: gatk]
+  ~ interval: List containing genomic intervals, one chromosome name per line and/or coordinate 
+    in bed format: <chr> <start> <stop>.
+    NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+    If not provided, intervals will be created from gVCF header.
   ~ threads: (optional) number of computer cpus to use  [default: 11]
   ~ njobs: (optional) number of jobs to submit at once [default: 10]
   *******************************************************************************************/   
