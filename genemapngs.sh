@@ -12,19 +12,19 @@ ANSIGRY='\e[2m'
 
 function checkprojectname() {
   projectdir=$(echo $(dirname ${0}))
+  pn=( $(grep -w 'project_name =' ${projectdir}/nextflow.config 2>/dev/null | sed "s|'||g") )
   if [ ! -e ${projectdir}/nextflow.config ]; then
     echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
     echo "See the documentation for how to run the workflow.\n"
     exit 1
   else
-    pn=( $(grep -w 'project_name =' ${projectdir}/nextflow.config | sed "s|'||g") )
     if [[ ${pn[2]} == NULL ]]; then
       echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
       sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
       projectname=myproject
       sleep 2
     else
-      projectname=${pn}
+      projectname=${pn[2]}
     fi
   fi
 }
@@ -67,14 +67,15 @@ function usage() {
 
 profiles() {
    echo """
-           profiles: <executor>,<container>,<reference>
+           profiles: <executor>,<container>,<datatype>,<reference>
            ---------
-          executors: local, slurm
+          executors: local, slurm, pbs(pro)
          containers: singularity, aptainer, docker
+           datatype: wes, wgs
           reference: hg19, hg38, t2t
 
-	       e.g.: local,docker,hg19
-	             slurm,singularity,hg38
+	       e.g.: local,docker,wes,hg19
+	             slurm,singularity,wgs,hg38
 
    """
 }
@@ -165,12 +166,15 @@ function check_output_dir() {
 }
 
 function setglobalparams() {
+#resource selector file
+rselector=$1
 #- create the project nextflow config file
 echo """includeConfig \"\${projectDir}/nextflow.config\"
 includeConfig \"\${projectDir}/configs/profile-selector.config\"
-includeConfig \"\${projectDir}/configs/resource-selector.config\"
+includeConfig \"\${projectDir}/configs/resourceselector/${rselector}\"
 """
 }
+
 
 ##################################################### USAGE #########################################################
 function qcusage() {
@@ -178,6 +182,8 @@ function qcusage() {
    echo """
            options:
            --------
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
            --ftype              : Input file type; FASTQ, BAM, CRAM [default: FASTQ].
            --input_dir          : (required) Path to FASTQ/BAM/CRAM files.
            --output_dir         : (optional) Results will be saved to parent of input directory ['input_dir/../'].
@@ -192,6 +198,8 @@ function trimusage() {
    echo """
            options:
            --------
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
            --ftype              : Input file type; FASTQ, BAM, CRAM [default: FASTQ].
            --input_dir          : (required).
            --output_dir         : (optional) Results will be saved to parent of input directory ['input_dir/../'].
@@ -224,12 +232,13 @@ function alignusage() {
            options:
            --------
            
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
            --ftype              : Input file type; FASTQ, BAM, CRAM [default: FASTQ].
            --input_dir          : (required) Path to FASTQ/BAM/CRAM files.
            --aligner            : Alignment tool (required); BWA, DRAGMAP [default: BWA].
            --output_dir         : (optional) [results will be saved to parent of input directory].
            --se                 : If FASTQs are single-end (paired-end is assumed by default).
-           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --dup_marker         : Duplicate marker tool (optional); sambamba, samtools [default: sambamba]
            --remove_dup         : Whether to remove duplicates (optional): true, false [default: false]
            --spark              : Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
@@ -245,6 +254,8 @@ function varcallusage() {
            options:
            --------
 
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
            --alignment_dir      : (required) Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
            --out                : Output prefix (optional) [default: my-ngs].
            --output_dir         : (optional) [results will be saved to parent of input directory]
@@ -256,7 +267,6 @@ function varcallusage() {
                                   in bed format: <chr> <start> <stop>.
                                   NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
                                   If not provided, intervals will be created from gVCF header.
-           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -269,11 +279,12 @@ function svarcallusage() {
            options:
            --------
 
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
            --alignment_dir      : (required) Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
            --out                : Output prefix (optional) [default: my-ngs].
            --output_dir         : (optional) [results will be saved to parent of input directory]
            --scaller            : Single sample variant caller; gatk, deepvariant, dysgu, manta [default: gatk]
-           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -286,6 +297,8 @@ function jvarcallusage() {
            options:
            --------
 
+           --wgs                       : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                         This is important for resource allocation.
            --genomicsdb_workspace_dir  : (required) for calling variants from, or imprting gVCFS to, an existing genomicsdb workspace.
                                          Path containing genomicsdb workspaces (workspaces are directories).
            --imprt                     : Specify this flag if importing gVCF files to new genomicsdb workspaces. Cannot be used with '--update'
@@ -300,7 +313,6 @@ function jvarcallusage() {
                                          NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1).
                                          If not provided, intervals will be created from gVCF header. If '--update' is specified and
                                          interval list is provided, it must be the same as that used for imprt.
-           --wgs                       : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads                   : number of computer cpus to use  [default: 11].
            --njobs                     : (optional) number of jobs to submit at once [default: 10]
            --help                      : print this help message.
@@ -314,6 +326,7 @@ function varfilterusage() {
            --------
 
            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
 	   --left_norm          : (optional) Whether to left-normalized variants such as is recommended by ANNOVAR; true, false [defaul: false].
            --vcf_dir            : (required) Path to VCF file(s).
            --minDP              : Minimum allele depth [default: 10].
@@ -344,25 +357,26 @@ includeConfig \"\${projectDir}/configs/test.config\"
 
 function qcconfig() { #params passed as arguments
 #check and remove config file if it exists
-#create a unique id from date and time
-id=$(date +%Y%m%d%H%M%S)
-[ -e ${id}-qc.config ] && rm ${id}-qc.config
+[ -e ${projectname}-qc.config ] && rm ${projectname}-qc.config
 
-#qcconfig $input_ftype $input_dir $output_dir $threads $njobs
+#qcconfig $exome $input_ftype $input_dir $output_dir $threads $njobs
 echo """
 params {
   //=======================================================
   //genemapngs reads quality check (qc) workflow parameters
   //=======================================================
 
-  input_ftype = '$1'
-  input_dir = '$2'
-  output_dir = '$3'
-  threads = ${4}
-  njobs = ${5}
+  exome = $1
+  input_ftype = '$2'
+  input_dir = '$3'
+  output_dir = '$4'
+  threads = ${5}
+  njobs = ${6}
 
 
   /*****************************************************************************************
+  ~ exome: (optional) for GLNexus variant calling, manta structural variant calling, and for 
+    resource management.
   ~ input_ftype: (required) FASTQ, BAM, CRAM.
   ~ input_dir: (required) Path to FASTQ/BAM/CRAM files.
   ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../'].
@@ -371,16 +385,15 @@ params {
   *******************************************************************************************/
 }
 
-`setglobalparams`
-""" >> ${id}-qc.config
+$(setglobalparams ${7})
+""" >> ${projectname}-qc.config
 }
 
 
 function trimconfig() { #params passed as arguments
+
 #check and remove config file if it exists
-#create a unique id from date and time
-id=$(date +%Y%m%d%H%M%S)
-[ -e ${id}-trim.config ] && rm ${id}-trim.config
+[ -e ${projectname}-trim.config ] && rm ${projectname}-trim.config
 
 #trimconfig $ftype $input_dir $output_dir $trimmer $adapter $min_length $headcrop $crop $threads $njobs
 echo """
@@ -389,19 +402,22 @@ params {
   //genemapngs reads trimming (trim) workflow parameters
   //====================================================
 
-  input_ftype = '$1'
-  input_dir = '$2'
-  output_dir = '$3'
-  trimmer = '$4'
-  adapter = '$5'
-  min_length = ${6}
-  headcrop = ${7}
-  crop = ${8}
-  threads = ${9}
-  njobs = ${10}
+  exome = $1
+  input_ftype = '$2'
+  input_dir = '$3'
+  output_dir = '$4'
+  trimmer = '$5'
+  adapter = '$6'
+  min_length = ${7}
+  headcrop = ${8}
+  crop = ${9}
+  threads = ${10}
+  njobs = ${11}
 
 
   /*****************************************************************************************
+  ~ exome: (optional) for GLNexus variant calling, manta structural variant calling, and for 
+    resource management.
   ~ input_ftype: (required) FASTQ, BAM, CRAM.
   ~ input_dir: (required) Path to FASTQ/BAM/CRAM files.
   ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../'].
@@ -415,15 +431,15 @@ params {
   *******************************************************************************************/
 }
 
-`setglobalparams`
-""" >> ${id}-trim.config
+$(setglobalparams ${12})
+""" >> ${projectname}-trim.config
 }
 
 
 function alignconfig() { #params passed as arguments
+
 #check and remove config file if it exists
-id=$(date +%Y%m%d%H%M%S)
-[ -e ${id}-alignment.config ] && rm ${id}-alignment.config
+[ -e ${projectname}-alignment.config ] && rm ${projectname}-alignment.config
 
 #alignconfig $pe $exome $aligner $ftype $input_dir $output_dir $dup_marker $remove_dup $spark $threads $njobs
 echo """
@@ -465,14 +481,14 @@ params {
   *******************************************************************************************/
 }
 
-`setglobalparams`
-""" >> ${id}-alignment.config
+$(setglobalparams ${12})
+""" >> ${projectname}-alignment.config
 }
 
 
 function varcallconfig() { #params passed as arguments
 #check and remove config file if it exists
-[ -e ${4}-varcall.config ] && rm ${4}-varcall.config
+[ -e ${projectname}-varcall.config ] && rm ${projectname}-varcall.config
 
 #varcallconfig $exome $input_dir $output_dir $output_prefix $scaller $jcaller $threads $njobs
 echo """
@@ -509,14 +525,14 @@ params {
   *******************************************************************************************/   
 }
 
-`setglobalparams`
-""" >> ${4}-varcall.config
+$(setglobalparams ${9})
+""" >> ${projectname}-varcall.config
 }
 
 
 function svarcallconfig() { #params passed as arguments
 #check and remove config file if it exists
-[ -e ${4}-svarcall.config ] && rm ${4}-svarcall.config
+[ -e ${projectname}-svarcall.config ] && rm ${projectname}-svarcall.config
 
 #svarcallconfig $exome $alignment_dir $output_dir $output_prefix $scaller $threads $njobs
 echo """
@@ -541,20 +557,20 @@ params {
   ~ alignment_dir: (required) path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
   ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../']
   ~ output_prefix: (optional) project name.
-  ~ single_caller: (optional) gatk, deepvariant [default: gatk]
+  ~ single_caller: (optional) gatk, deepvariant, dysgu, manta [default: gatk]
   ~ threads: (optional) number of computer cpus to use  [default: 11]
   ~ njobs: (optional) number of jobs to submit at once [default: 10]
   *******************************************************************************************/ 
 }
 
-`setglobalparams`
-""" >> ${4}-svarcall.config
+$(setglobalparams ${8})
+""" >> ${projectname}-svarcall.config
 }
 
 
 function jvarcallconfig() { #params passed as arguments
 #check and remove config file if it exists
-[ -e ${8}-jvarcall.config ] && rm ${8}-jvarcall.config
+[ -e ${projectname}-jvarcall.config ] && rm ${projectname}-jvarcall.config
 
 #jvarcallconfig $exome $genomicsdb_workspace_dir $imprt $update $gvcf_dir $batch_size $output_dir $output_prefix $jcaller $interval $threads $njobs
 echo """
@@ -604,8 +620,8 @@ params {
   *******************************************************************************************/
 }
 
-`setglobalparams`
-""" >> ${8}-jvarcall.config
+$(setglobalparams ${13})
+""" >> ${projectname}-jvarcall.config
 }
 
 
@@ -613,7 +629,7 @@ function varfilterconfig() {
 #varfilterconfig $exome $vcf_dir $minDP $minGQ $minAC $out $output_dir $threads $njobs
 
 #check and remove config file if it exists
-[ -e ${7}-varfilter.config ] && rm ${7}-varfilter.config
+[ -e ${projectname}-varfilter.config ] && rm ${projectname}-varfilter.config
 
 echo """
 params {
@@ -650,8 +666,8 @@ params {
   *******************************************************************************************/
 }
 
-`setglobalparams`
-""" >> ${7}-varfilter.config
+$(setglobalparams ${12})
+""" >> ${projectname}-varfilter.config
 }
 
 
@@ -674,9 +690,11 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,ftype:,input_dir:,output_dir:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,ftype:,input_dir:,output_dir:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #- defaults
+         exome=true
+         resource=resource-selector-wes.config
          ftype=FASTQ     
          input_dir=NULL  
          output_dir=NULL 
@@ -687,6 +705,7 @@ else
 
          while true; do
             case $1 in
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                --ftype) ftype="$2"; shift 2;;
                --input_dir) input_dir="$2"; shift 2;;
                --output_dir) output_dir="$2"; shift 2;;
@@ -699,24 +718,26 @@ else
             continue; shift;
          done
 
-         #####################################################################
-         # output_dir is not required. If NULL, it will be generated         #
-         # from input_dir. Hence output_dir check need not exit the workflow #
-         #####################################################################
+         #########################################################
+         # output_dir is required to avoid writing in the home   #
+         # directory here the workflow should be preferrably run #
+         #########################################################
          check_required_params \
-	     input_dir,$input_dir && \
-         check_output_dir \
-	     $output_dir || \
+	     input_dir,$input_dir \
+             output_dir,$output_dir && \
          check_optional_params \
 	     ftype,$ftype \
 	     threads,$threads \
 	     njobs,$njobs && \
          qcconfig \
+             $exome \
 	     $ftype \
 	     $input_dir \
 	     $output_dir \
 	     $threads \
-	     $njobs
+	     $njobs \
+             $resource
+
          #echo `nextflow -c ${out}-qc.config run qualitycontrol.nf -profile $profile`
       ;;
       trim)
@@ -729,9 +750,11 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,ftype:,input_dir:,output_dir:,trimmer:,adapter:,min_length:,headcrop:,crop:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,ftype:,input_dir:,output_dir:,trimmer:,adapter:,min_length:,headcrop:,crop:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #- defaults
+         exome=true
+         resource=resource-selector-wes.config
          ftype=FASTQ       
          input_dir=NULL    
          output_dir=NULL    
@@ -747,6 +770,7 @@ else
 
          while true; do
             case $1 in
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                --ftype) ftype="$2"; shift 2;;
                --input_dir) input_dir="$2"; shift 2;;
                --output_dir) output_dir="$2"; shift 2;;
@@ -766,9 +790,8 @@ else
 
          check_required_params \
 	     input_dir,$input_dir \
+             output_dir,$output_dir \
 	     $([[ "${trimmer}" == "trimmomatic" ]] && echo "adapter,\$adapter") && \
-         check_output_dir \
-	     $output_dir || \
          check_optional_params \
 	     ftype,$ftype \
 	     trimmer,$trimmer \
@@ -778,6 +801,7 @@ else
 	     threads,$threads \
 	     njobs,$njobs && \
          trimconfig \
+             $exome \
 	     $ftype \
 	     $input_dir \
 	     $output_dir \
@@ -787,7 +811,9 @@ else
 	     $headcrop \
 	     $crop \
 	     $threads \
-	     $njobs
+	     $njobs \
+             $resource
+
          #echo `nextflow -c ${out}-qc.config run qualitycontrol.nf -profile $profile`
       ;;
       align)
@@ -808,7 +834,8 @@ else
          ftype=FASTQ         
          input_dir=NULL      
          output_dir=NULL     
-         exome=true          
+         exome=true
+         resource=resource-selector-wes.config
          dup_marker=sambamba 
          remove_dup=false    
          spark=false
@@ -820,7 +847,7 @@ else
          while true; do
             case $1 in
                --se) pe=false; shift;;
-               --wgs) exome=false; shift;;
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                --spark) spark=true; shift;;
                --aligner) aligner="${2}"; shift 2;;
                --ftype) ftype="$2"; shift 2;;
@@ -837,9 +864,8 @@ else
          done
 
          check_required_params \
-	     input_dir,$input_dir && \
-         check_output_dir \
-             $output_dir || \
+	     input_dir,$input_dir \
+             output_dir,$output_dir && \
          check_optional_params \
 	     ftype,$ftype \
 	     dup_marker,$dup_marker \
@@ -857,9 +883,8 @@ else
 	     $remove_dup \
 	     $spark \
 	     $threads \
-	     $njobs
-         #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
-
+	     $njobs \
+             $resource
       ;;
       varcall)
          #pass profile as argument
@@ -880,7 +905,8 @@ else
          output_prefix="myngs"
          ped=NULL             
          scaller=gatk         
-         exome=true           
+         exome=true
+         resource=resource-selector-wes.config
          jcaller=gatk         
          threads=11
          njobs=10             
@@ -889,7 +915,7 @@ else
 
          while true; do
             case $1 in
-               --wgs) exome=false; shift;;
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                #--ftype) ftype="$2"; shift 2;;
                --alignment_dir) alignment_dir="$2"; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
@@ -905,6 +931,7 @@ else
          done
 
          check_required_params \
+             output_dir,$output_dir \
 	     alignment_dir,$alignment_dir && \
          check_output_dir \
 	     $output_dir || \
@@ -922,7 +949,9 @@ else
 	     $scaller \
 	     $jcaller \
 	     $threads \
-	     $njobs
+	     $njobs \
+             $resource
+           
          #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
 
       ;;
@@ -945,7 +974,8 @@ else
          output_prefix="myngs"
          ped=NULL             
          scaller=gatk         
-         exome=true           
+         exome=true
+         resource=resource-selector-wes.config
          threads=11
          njobs=10             
 
@@ -953,7 +983,7 @@ else
 
          while true; do
             case $1 in
-               --wgs) exome=false; shift;;
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                #--ftype) ftype="$2"; shift 2;;
                --alignment_dir) alignment_dir="$2"; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
@@ -968,9 +998,8 @@ else
          done
 
          check_required_params \
+             output_dir,$output_dir \
 	     alignment_dir,$alignment_dir && \
-         check_output_dir \
-	     $output_dir || \
          check_optional_params \
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
@@ -983,7 +1012,9 @@ else
 	     $output_prefix \
 	     $scaller \
 	     $threads \
-	     $njobs
+	     $njobs \
+             $resource
+
          #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
 
       ;;
@@ -1004,7 +1035,8 @@ else
          output_dir=NULL              
          output_prefix="myngs"       
          ped=NULL                     
-         exome=true                   
+         exome=true
+         resource=resource-selector-wes.config
          jcaller=gatk                 
          interval=NULL                
          gvcf_dir=NULL                
@@ -1019,7 +1051,7 @@ else
 
          while true; do
             case $1 in
-               --wgs) exome=false; shift;;
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                --update) update=true; shift;;
                --imprt) imprt=true; shift;;
                --output_dir) output_dir="${2}"; shift 2;;
@@ -1047,9 +1079,8 @@ else
 
             update=false
             check_required_params \
+                output_dir,$output_dir \
                 gvcf_dir,$gvcf_dir && \
-            check_output_dir \
-                $output_dir || \
             check_optional_params \
                 output_prefix,$output_prefix \
                 jcaller,$jcaller \
@@ -1069,8 +1100,11 @@ else
                 $jcaller \
                 $interval \
                 $threads \
-                $njobs
+                $njobs \
+                $resource
+
             #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
+
          elif [[ "${update}" == "true" ]]; then
 
             ##############################################
@@ -1083,11 +1117,10 @@ else
 
             imprt=false
             check_required_params \
+                output_dir,$output_dir \
 	        gvcf_dir,$gvcf_dir \
                 interval,$interval \
 		genomicsdb_workspace_dir,$genomicsdb_workspace_dir && \
-            check_output_dir \
-	        $output_dir || \
             check_optional_params \
                 output_prefix,$output_prefix \
                 jcaller,$jcaller \
@@ -1107,13 +1140,15 @@ else
                 $jcaller \
                 $interval \
                 $threads \
-                $njobs
+                $njobs \
+                $resource
+
             #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
+
          else
             check_required_params \
+                output_dir,$output_dir \
 	        genomicsdb_workspace_dir,$genomicsdb_workspace_dir && \
-            check_output_dir \
-	        $output_dir || \
             check_optional_params \
                 gvcf_dir,$gvcf_dir \
                 output_prefix,$output_prefix \
@@ -1135,8 +1170,11 @@ else
                 $jcaller \
                 $interval \
                 $threads \
-                $njobs
+                $njobs \
+                $resource
+
             #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
+
          fi
       ;;
       varfilter)
@@ -1152,23 +1190,24 @@ else
          prog=`getopt -a --long "help,wgs,left_norm,vcf_dir:,minDP:,minGQ:,minAC:,out:,output_dir:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #- defaults
-	 exome=true
+         exome=true
+         resource=resource-selector-wes.config
 	 left_norm=false
-         vcf_dir=NULL                            #// (required) Path to FASTQ/BAM/CRAM files.
-         minDP=10                                #// Minimum allele depth [default: 10].
-         minGQ=20                                #// Minimun genotype quality [default: 20].
-         minAC=1                                 #// Minimun allele count (to remove singletons, set to 2) [default: 1].
-         out="my-varfilter"                      #// Output prefix (optional) [default: my-ngs].
-         output_dir=NULL                         #// (optional) [results will be saved to parent of input directory]
-         jcaller=gatk                            #// options: gatk, glnexus
-         threads=4                               #// number of computer cpus to use  [default: 11].
-         njobs=10                                #// (optional) number of jobs to submit at once [default: 11]
+         vcf_dir=NULL       
+         minDP=10           
+         minGQ=20           
+         minAC=1            
+         out="my-varfilter" 
+         output_dir=NULL    
+         jcaller=gatk       
+         threads=4          
+         njobs=10           
 
          eval set -- "$prog"
 
          while true; do
             case $1 in
-               --wgs) exome=false; shift;;
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                --left_norm) exome=true; shift;;
                --vcf_dir) vcf_dir="$2"; shift 2;;
                --minDP) minDP="$2"; shift 2;;
@@ -1187,9 +1226,8 @@ else
          done
 
          check_required_params \
+             output_dir,$output_dir \
              vcf_dir,$vcf_dir && \
-         check_output_dir \
-             $output_dir || \
          check_optional_params \
              out,$out \
              minDP,$minDP \
@@ -1209,8 +1247,11 @@ else
 	     $output_dir \
 	     $jcaller \
 	     $threads \
-	     $njobs
+	     $njobs \
+             $resource
+
          #echo `nextflow -c ${out}-qc.config run qualitycontrol.nf -profile $profile`
+
       ;;
       help) shift; usage; exit 1;;
       *) shift; usage; exit 1;;
