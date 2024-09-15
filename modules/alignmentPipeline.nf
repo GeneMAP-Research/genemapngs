@@ -94,6 +94,61 @@ process convertAlignmentToFastq() {
         """
 }
 
+process alignReadsBWA() {
+    tag "processing ${fastqName}"
+    label 'ngstools'
+    label 'readAligner'
+    cache 'lenient'
+    if(params.buildVersion == 't2t') {
+        publishDir \
+            path: "${params.output_dir}/cram/", \
+            mode: 'copy'
+    } else {
+        publishDir \
+            path: "${params.output_dir}/cram/dupsmarked/"
+    }
+    input:
+        tuple \
+            val(fastqName), \
+            path(reads)
+    output:
+        tuple \
+            val(fastqName), \
+            path("${fastqName}.dupsMarked.cram")
+    script:
+        ( readOne, readTwo ) = reads
+        """
+        bwa-mem2 \
+            mem \
+            -t ${task.cpus} \
+            ${params.fastaRef} \
+            ${readOne} \
+            ${readTwo} \
+            -R \"@RG\\tID:${fastqName}\\tSM:${fastqName}\\tPL:ILLUMINA\" | \
+        samtools \
+            fixmate \
+            -c \
+            -m \
+            -O CRAM \
+            --reference ${params.fastaRef} \
+            --threads ${task.cpus} \
+            - - | \
+        samtools \
+            sort \
+            --reference ${params.fastaRef} \
+            -O CRAM \
+            --threads ${task.cpus} \
+            - | \
+        samtools \
+            markdup \
+            --reference ${params.fastaRef} \
+            -O CRAM \
+            --threads ${task.cpus} \
+            - \
+            ${fastqName}.dupsMarked.cram
+        """
+}
+
 process bwaAligner() {
     tag "processing ${fastqName}"
     label 'bwa_bgzip'
@@ -411,12 +466,12 @@ process indexAlignment() {
         """
 }
 
-process indexAndCopyBam() {
+process indexAndCopyAlignment() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamIndexer'
     publishDir \
-        path: "${params.output_dir}/bam/", \
+        path: "${params.output_dir}/cram/", \
         mode: 'copy'
     input:
         tuple \
@@ -426,7 +481,7 @@ process indexAndCopyBam() {
         tuple \
             val(bamName), \
             path("${bamFile}"), \
-            path("*.bai")
+            path("*.crai")
     script:
         bam = bamFile[0]
         """
@@ -441,8 +496,16 @@ process markDuplicates() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
-    publishDir \
-        path: "${params.output_dir}/cram/dupsmarked/"
+    //storeDir { if(params.buildVersion == 't2t') { "${params.output_dir}/cram/" } else { "${params.output_dir}/cram/dupsmarked/" } }
+    publishDir { 
+        if(params.buildVersion == 't2t') { 
+            path: "${params.output_dir}/cram/"
+            mode: 'copy'
+        } else { 
+            path: "${params.output_dir}/cram/dupsmarked/" 
+        } 
+    } 
+        //path: "${params.output_dir}/cram/dupsmarked/"
     input:
         tuple \
             val(bamName), \
