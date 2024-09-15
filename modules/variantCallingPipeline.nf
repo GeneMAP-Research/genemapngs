@@ -157,8 +157,7 @@ process haplotypeCaller() {
     label 'gatk'
     label 'variantCaller'
     cache 'lenient'
-    publishDir \
-        path: "${params.output_dir}/gvcfs/"
+    storeDir "${params.output_dir}/gvcfs/"
     input:
         tuple \
             val(bamName), \
@@ -548,6 +547,7 @@ process collectIntervalsPerChromosome() {
     tag "Collecting intervals per chromosome..."
     label 'bcftools'
     label 'variantCaller'
+    storeDir "${params.output_dir}/vcf/"
     input:
         path(vcfs)
     output:
@@ -572,8 +572,9 @@ process concatPerChromIntervalVcfs() {
     tag "Concatenating VCF files per chromosome..."
     label 'bcftools'
     label 'variantCaller'
-    publishDir \
-        path: "${params.output_dir}/vcf/"
+    storeDir "${params.output_dir}/vcf/"
+    //publishDir \
+    //    path: "${params.output_dir}/vcf/"
     input:
         path(vcf_list)
     output:

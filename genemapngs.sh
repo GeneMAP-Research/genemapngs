@@ -2,11 +2,40 @@
 
 #--- genemapgwas workflow wrapper ---#
 
+ANSIRESET='\e[0m'
+ANSIRED='\e[31m'
+ANSIGRN='\e[32m'
+ANSIYLW='\e[33m'
+ANSIBLU='\e[34m'
+ANSIPPL='\e[35m'
+ANSIGRY='\e[2m'
+
+function checkprojectname() {
+  projectdir=$(echo $(dirname ${0}))
+  if [ ! -e ${projectdir}/nextflow.config ]; then
+    echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
+    echo "See the documentation for how to run the workflow.\n"
+    exit 1
+  else
+    pn=( $(grep -w 'project_name =' ${projectdir}/nextflow.config | sed "s|'||g") )
+    if [[ ${pn[2]} == NULL ]]; then
+      echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
+      sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
+      projectname=myproject
+      sleep 2
+    else
+      projectname=${pn}
+    fi
+  fi
+}
+
+checkprojectname
+
 function usage() {
-   echo """
-   ===================================================================
-   GeneMAP-NGS ~ a wrapper for the nextflow-based genemapngs workflow
-   ===================================================================
+   echo -e """
+   ${ANSIGRY}===================================================================${ANSIRESET}
+   ${ANSIBLU}Gene${ANSIRED}MAP${ANSIPPL}-NGS${ANSIRESET} ~ ${ANSIGRN}a wrapper for the nextflow-based genemapngs workflow${ANSIRESET}
+   ${ANSIGRY}===================================================================${ANSIRESET}
 
    Usage: genemapngs <workflow> <profile> [options] ...
 
@@ -123,6 +152,8 @@ function check_output_dir() {
          output_dir="${gvcf_dir}/../"
       elif [ -d ${alignment_dir} ]; then
          output_dir="${alignment_dir}/../"
+      elif [ -d ${vcf_dir} ]; then
+         output_dir="${vcf_dir}/../"
       elif [ -d ${genomicsdb_workspace_dir} ]; then
          output_dir="${genomicsdb_workspace_dir}/../"
       fi
@@ -220,6 +251,11 @@ function varcallusage() {
            --scaller            : Single sample variant caller; gatk, deepvariant [default: gatk]
                                   For structural variant calling, use 'svarcall'
            --jcaller            : Joint sample variant caller; gatk, glnexus [default: gatk]
+           --batch_size         : (optional) number of samples to read into memory by GATK sample reader per time [default: 50]
+           --interval           : List containing genomic intervals, one chromosome name per line and/or coordinate 
+                                  in bed format: <chr> <start> <stop>.
+                                  NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+                                  If not provided, intervals will be created from gVCF header.
            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
@@ -278,6 +314,7 @@ function varfilterusage() {
            --------
 
            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+	   --left_norm          : (optional) Whether to left-normalized variants such as is recommended by ANNOVAR; true, false [defaul: false].
            --vcf_dir            : (required) Path to VCF file(s).
            --minDP              : Minimum allele depth [default: 10].
            --minGQ              : Minimun genotype quality [default: 20].
@@ -402,7 +439,7 @@ params {
   input_dir = '$5'
   output_dir = '$6'
   dup_marker = '$7'
-  remove_dup = '$8'
+  remove_dup = $8
   spark = $9
   threads = ${10}
   njobs = ${11}
@@ -463,6 +500,10 @@ params {
   ~ output_prefix: (optional) project name.
   ~ single_caller: (optional) gatk, deepvariant [default: gatk]
   ~ joint_caller: (optional) gatk, glnexus [default: gatk]
+  ~ interval: List containing genomic intervals, one chromosome name per line and/or coordinate 
+    in bed format: <chr> <start> <stop>.
+    NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+    If not provided, intervals will be created from gVCF header.
   ~ threads: (optional) number of computer cpus to use  [default: 11]
   ~ njobs: (optional) number of jobs to submit at once [default: 10]
   *******************************************************************************************/   
@@ -572,7 +613,7 @@ function varfilterconfig() {
 #varfilterconfig $exome $vcf_dir $minDP $minGQ $minAC $out $output_dir $threads $njobs
 
 #check and remove config file if it exists
-[ -e ${6}-varfilter.config ] && rm ${6}-varfilter.config
+[ -e ${7}-varfilter.config ] && rm ${7}-varfilter.config
 
 echo """
 params {
@@ -581,19 +622,22 @@ params {
   //============================================================
 
   exome = $1
-  vcf_dir = '${2}'
-  minDP = ${3}
-  minGQ = ${4}
-  minAC = ${5}
-  output_prefix = '${6}'
-  output_dir = '${7}'
-  joint_caller = '${8}'
-  threads = ${9}
-  njobs = ${10}
+  left_norm = $2
+  vcf_dir = '${3}'
+  minDP = ${4}
+  minGQ = ${5}
+  minAC = ${6}
+  output_prefix = '${7}'
+  output_dir = '${8}'
+  joint_caller = '${9}'
+  threads = ${10}
+  njobs = ${11}
 
 
   /*****************************************************************************************
   ~ exome: (optional) for VQSR, MQ annotation will be excluded for exome data
+  ~ left_norm: (optional) Whether to left-normalized variants such as is recommended by 
+    ANNOVAR; true, false [defaul: false].
   ~ vcf_dir: (required) path to VCF file(s).
   ~ minDP: (optional) minimum allele depth [default: 10]. 
   ~ minGQ: (optional) minimun genotype quality [default: 20]. 
@@ -607,7 +651,7 @@ params {
 }
 
 `setglobalparams`
-""" >> ${6}-varfilter.config
+""" >> ${7}-varfilter.config
 }
 
 
@@ -798,11 +842,8 @@ else
              $output_dir || \
          check_optional_params \
 	     ftype,$ftype \
-	     se,$pe \
-	     wgs,$exome \
 	     dup_marker,$dup_marker \
 	     remove_dup,$remove_dup \
-	     spark,$spark \
 	     threads,$threads \
 	     njobs,$njobs && \
          alignconfig \
@@ -871,7 +912,6 @@ else
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
 	     jcaller,$jcaller \
-	     wgs,$exome \
 	     threads,$threads \
 	     njobs,$njobs && \
          varcallconfig \
@@ -934,7 +974,6 @@ else
          check_optional_params \
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
-	     wgs,$exome \
 	     threads,$threads \
 	     njobs,$njobs && \
          svarcallconfig \
@@ -1015,7 +1054,6 @@ else
                 output_prefix,$output_prefix \
                 jcaller,$jcaller \
                 interval,$interval \
-                wgs,$exome \
                 threads,$threads \
                 njobs,$njobs \
                 batch_size,$batch_size && \
@@ -1111,10 +1149,11 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,vcf_dir:,minDP:,minGQ:,minAC:,out:,output_dir:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,left_norm,vcf_dir:,minDP:,minGQ:,minAC:,out:,output_dir:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #- defaults
 	 exome=true
+	 left_norm=false
          vcf_dir=NULL                            #// (required) Path to FASTQ/BAM/CRAM files.
          minDP=10                                #// Minimum allele depth [default: 10].
          minGQ=20                                #// Minimun genotype quality [default: 20].
@@ -1130,6 +1169,7 @@ else
          while true; do
             case $1 in
                --wgs) exome=false; shift;;
+               --left_norm) exome=true; shift;;
                --vcf_dir) vcf_dir="$2"; shift 2;;
                --minDP) minDP="$2"; shift 2;;
                --minGQ) minGQ="$2"; shift 2;;
@@ -1151,7 +1191,6 @@ else
          check_output_dir \
              $output_dir || \
          check_optional_params \
-             wgs,$exome \
              out,$out \
              minDP,$minDP \
              minGQ,$minGQ \
@@ -1161,6 +1200,7 @@ else
              njobs,$njobs && \
          varfilterconfig \
              $exome \
+	     $left_norm \
 	     $vcf_dir \
 	     $minDP \
 	     $minGQ \
