@@ -67,15 +67,14 @@ function usage() {
 
 profiles() {
    echo """
-           profiles: <executor>,<container>,<datatype>,<reference>
+           profiles: <executor>,<container>,<reference>
            ---------
           executors: local, slurm, pbs(pro)
          containers: singularity, aptainer, docker
-           datatype: wes, wgs
           reference: hg19, hg38, t2t
 
-	       e.g.: local,docker,wes,hg19
-	             slurm,singularity,wgs,hg38
+	       e.g.: local,docker,hg19
+	             slurm,singularity,hg38
 
    """
 }
