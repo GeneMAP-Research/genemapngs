@@ -766,9 +766,12 @@ process dysguMergeVcfs() {
     output:
         path "${params.output_prefix}_dysgu_sv.vcf.gz"
         """
+        mkdir -p temp
         dysgu \
           merge \
           *.vcf.gz \
+          --wd temp/ \
+          --clean \
           -p ${task.cpus} | \
           bgzip -c > ${params.output_prefix}_dysgu_sv.vcf.gz
         """
