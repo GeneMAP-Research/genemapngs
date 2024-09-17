@@ -740,6 +740,9 @@ process indexVcf() {
     tag "processing ${vcf}"
     label 'bcftools'
     label 'mediumMemory'
+    publishDir \
+        path: "${params.output_dir}/vcf/dysgu/", \
+        mode: 'copy'
     input:
         path(vcf)
     output:
