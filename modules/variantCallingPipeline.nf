@@ -648,7 +648,7 @@ process deepVariantCaller() {
     script:
         """
         run_deepvariant \
-            --model_type=WGS \
+            --model_type=\$([ ${params.exome} == true ] && echo WES || echo WGS) \
             --ref=${params.fastaRef} \
             --reads=${bamFile} \
             --output_gvcf=${bamName}.g.vcf.gz \
@@ -728,6 +728,8 @@ process dysguCallSvs() {
             -p ${task.cpus} \
             ${params.fastaRef} \
             -x temp \
+            --keep-small \
+            --clean \
             -v2 \
             ${bamFile} | \
             bgzip -c > ${bamName}.vcf.gz \
