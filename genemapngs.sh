@@ -45,6 +45,7 @@ function usage() {
                  qc: Check FASTQ or Alignment (BAM/CRAM) quality.
                trim: Trim adapters and poor quality bases from reads.
               align: Align/map reads to reference and post-alignment processing.
+         mergealign: Megre Alignment (BAM/CRAM) files.
             varcall: Perform variant calling (both single and joint sample) in one run.
            svarcall: Perform only sinlge sample variant calling to generate gVCF files.
            jvarcall: Perform only joint (multi-sample) variant calling with pre-existing gVCF files.
@@ -142,28 +143,6 @@ function check_optional_params() {
    done
 }
 
-function check_output_dir() {
-   output_dir=$1
-   if [[ $output_dir == -* ]]  || [[ $output_dir == NULL ]]; then
-      #output_dir="${input_dir}/../" 
-      if [ -d ${input_dir} ]; then
-         output_dir="${input_dir}/../"
-      elif [ -d ${gvcf_dir} ]; then
-         output_dir="${gvcf_dir}/../"
-      elif [ -d ${alignment_dir} ]; then
-         output_dir="${alignment_dir}/../"
-      elif [ -d ${vcf_dir} ]; then
-         output_dir="${vcf_dir}/../"
-      elif [ -d ${genomicsdb_workspace_dir} ]; then
-         output_dir="${genomicsdb_workspace_dir}/../"
-      fi
-      if [[ $output_dir == NULL* ]]; then
-         echo "ERROR: Invalid paramter value for option '--output_dir'"
-         exit 1;
-      fi
-   fi
-}
-
 function setglobalparams() {
 #resource selector file
 rselector=$1
@@ -242,6 +221,25 @@ function alignusage() {
            --remove_dup         : Whether to remove duplicates (optional): true, false [default: false]
            --spark              : Whether to use GATK spark mode for post-alignment processing (it multi-threads). Is not used by default.
            --threads            : number of computer cpus to use  [default: 11].
+           --njobs              : (optional) number of jobs to submit at once [default: 10]
+           --help               : print this help message.
+   """
+}
+
+function mergealignusage() {
+   echo -e "\nUsage: genemapngs align <profile> [options] ..."
+   echo """
+           options:
+           --------
+           
+           --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                  This is important for resource allocation.
+           --input_dir          : (required) Path containing BAM/CRAM sub-directories.
+                                  Each sub-directory contains only the files to be merged. The name of the sub-directory is used
+                                  to name the resulting merged aligment file (CRAM).
+           --output_dir         : (optional) [results will be saved to parent of input directory].
+           --threads            : number of computer cpus to use  [default: 11].
+           --sort_order         : (optional) options are: name, coordinate [default: coordinate]
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
    """
@@ -484,6 +482,42 @@ $(setglobalparams ${12})
 """ >> ${projectname}-alignment.config
 }
 
+function mergealignconfig() { #params passed as arguments
+
+#check and remove config file if it exists
+[ -e ${projectname}-merge-alignment.config ] && rm ${projectname}-merge-alignment.config
+
+#mergealignconfig $exome $input_dir $output_dir $sort_order $threads $njobs
+echo """
+params {
+  //======================================================
+  // genemapngs alignment (mergealign) workflow parameters 
+  //======================================================
+
+  exome = $1
+  input_dir = '$2'
+  output_dir = '$3'
+  sort_order = '${4}'
+  threads = ${5}
+  njobs = ${6}
+
+
+  /*****************************************************************************************
+  ~ exome: (optional) for GLNexus variant calling, manta structural variant calling, and for 
+    resource management.
+  ~ input_dir: (required) Path containing BAM/CRAM sub-directories.
+    Each sub-directory contains only the files to be merged. The name of the sub-directory
+    is used to name the resulting merged aligment file (CRAM).
+  ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../']
+  ~ sort_order: (optional) options are: name, coordinate [default: coordinate]
+  ~ threads: (optional) number of computer cpus to use  [default: 11]
+  ~ njobs: (optional) number of jobs to submit at once [default: 10]
+  *******************************************************************************************/
+}
+
+$(setglobalparams ${7})
+""" >> ${projectname}-merge-alignment.config
+}
 
 function varcallconfig() { #params passed as arguments
 #check and remove config file if it exists
@@ -503,8 +537,10 @@ params {
   output_prefix = '$4'
   single_caller = '$5'
   joint_caller = '$6'
-  threads = ${7}
-  njobs = ${8}
+  batch_size = ${7}
+  interval = '${8}'
+  threads = ${9}
+  njobs = ${10}
 
   
   /*****************************************************************************************
@@ -515,6 +551,8 @@ params {
   ~ output_prefix: (optional) project name.
   ~ single_caller: (optional) gatk, deepvariant [default: gatk]
   ~ joint_caller: (optional) gatk, glnexus [default: gatk]
+  ~ batch_size: (optional) number of samples to read into memory by GATK sample reader per
+    time [default: 50]
   ~ interval: List containing genomic intervals, one chromosome name per line and/or coordinate 
     in bed format: <chr> <start> <stop>.
     NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
@@ -524,7 +562,7 @@ params {
   *******************************************************************************************/   
 }
 
-$(setglobalparams ${9})
+$(setglobalparams ${11})
 """ >> ${projectname}-varcall.config
 }
 
@@ -885,6 +923,59 @@ else
 	     $njobs \
              $resource
       ;;
+      mergealign)
+         #pass profile as argument
+         checkprofile $2;
+         profile=$2;
+         shift;
+         if [ $# -lt 2 ]; then
+            mergealignusage; 1>&2;
+            exit 1;
+         fi
+
+         prog=`getopt -a --long "help,wgs,sort_order:,input_dir:,output_dir:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+
+         #defaults
+         input_dir=NULL      
+         output_dir=NULL     
+         exome=true
+         resource=resource-selector-wes.config
+         sort_order=coordinate
+         threads=11
+         njobs=10            
+         
+         eval set -- "$prog"
+
+         while true; do
+            case $1 in
+               --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
+               --sort_order) sort_order=$2; shift 2;;
+               --input_dir) input_dir="$2"; shift 2;;
+               --output_dir) output_dir="${2}"; shift 2;;
+               --threads) threads="$2"; shift 2;;
+               --njobs) njobs="$2"; shift 2;;
+               --help) shift; mergealignusage; 1>&2; exit 1;;
+               --) shift; break;;
+               *) shift; mergealignusage; 1>&2; exit 1;;
+            esac
+         done
+
+         check_required_params \
+	     input_dir,$input_dir \
+             output_dir,$output_dir && \
+         check_optional_params \
+	     sort_order,$sort_order \
+	     threads,$threads \
+	     njobs,$njobs && \
+         mergealignconfig \
+	     $exome \
+	     $input_dir \
+	     $output_dir \
+	     $sort_order \
+	     $threads \
+	     $njobs \
+             $resource
+      ;;
       varcall)
          #pass profile as argument
          checkprofile $2;
@@ -895,12 +986,14 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,alignment_dir:,output_dir:,out:,scaller:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,batch_size:,interval:,alignment_dir:,output_dir:,out:,scaller:,jcaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #defaults
          #ftype=FASTQ        
          alignment_dir=NULL   
-         output_dir=NULL      
+         output_dir=NULL
+         batch_size=50
+         interval=NULL
          output_prefix="myngs"
          ped=NULL             
          scaller=gatk         
@@ -917,6 +1010,8 @@ else
                --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
                #--ftype) ftype="$2"; shift 2;;
                --alignment_dir) alignment_dir="$2"; shift 2;;
+               --batch_size) batch_size=$2; shift 2;;
+               --interval) interval=$2; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
                --out) output_prefix="$2"; shift 2;;
                --scaller) scaller="$2"; shift 2;;
@@ -932,9 +1027,9 @@ else
          check_required_params \
              output_dir,$output_dir \
 	     alignment_dir,$alignment_dir && \
-         check_output_dir \
-	     $output_dir || \
          check_optional_params \
+             batch_size,$batch_size \
+             interval,$interval \
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
 	     jcaller,$jcaller \
@@ -947,11 +1042,12 @@ else
 	     $output_prefix \
 	     $scaller \
 	     $jcaller \
+             $batch_size \
+             $interval \
 	     $threads \
 	     $njobs \
              $resource
            
-         #echo `nextflow -c ${out}-idat2vcf.config run idat2vcf.nf -profile $profile`
 
       ;;
       svarcall)

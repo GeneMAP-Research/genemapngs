@@ -790,7 +790,7 @@ process getBamChuncks() {
         path("${params.output_prefix}_bamchunk_aaaaaaa*.txt")
     script:
         """
-        readlink \$(ls *.bam) > ${params.output_prefix}_bamlist.txt
+        readlink \$(ls *.{bam,cram}) > ${params.output_prefix}_bamlist.txt
         split \
             -l 5 \
             -a 8 \

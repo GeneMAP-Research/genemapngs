@@ -16,6 +16,12 @@ def getInputAlignments() {
                   .map { bamName, bamFile -> tuple(bamName, bamFile.first()) }
 }
 
+def getAlignmentDir() {
+    return channel.fromPath( params.input_dir + '*', type: 'dir' )
+                  .ifEmpty { error "\nERROR: Something went wrong!" }
+                  .map { alignDir -> tuple("${alignDir.baseName}", alignDir) }
+}
+
 def getInputCram() {
     return channel.fromFilePairs( params.input_dir + "/*.cram", size: 1 )
                   .ifEmpty { error "\nERROR: Could not locate BAM files!\nPlease make sure you have specified the correct file type and that they exist in the input directory you specified" }
@@ -756,3 +762,34 @@ process recalibrateBaseQualityScoresSpark() {
         """
 }
 
+process mergeMultiLaneAlignment() {
+    tag "processing ${bamName}"
+    label 'samtools'
+    label 'bamSorter'
+    storeDir "${params.output_dir}/cram/" 
+    input:
+        tuple \
+            val(bamName), \
+            path(bamDir)
+    output:
+        tuple \
+            val(bamName), \
+            path("${bamName}.merged.cram*")
+    script:
+        """
+        for file in \$(ls -R ${bamDir}/*.{bam,cram} 2>/dev/null); do
+            readlink \${file}
+        done > alignment-list.txt
+        samtools \
+            merge \
+            \$([[ ${params.sort_order} == name ]] && echo "-n" || echo "-t 'SO:coordinate'") \
+            -c \
+            -p \
+            -O CRAM \
+            --reference ${params.fastaRef} \
+            -@ ${task.cpus} \
+            --write-index \
+            ${bamName}.merged.cram \
+            -b alignment-list.txt
+        """
+}
