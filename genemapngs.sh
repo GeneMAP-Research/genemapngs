@@ -10,33 +10,59 @@ ANSIBLU='\e[34m'
 ANSIPPL='\e[35m'
 ANSIGRY='\e[2m'
 
+
+function banner() {
+   echo -e """
+   ${ANSIGRY}===================================================================${ANSIRESET}
+   ${ANSIBLU}Gene${ANSIRED}MAP${ANSIPPL}-NGS${ANSIRESET} ~ ${ANSIGRN}a wrapper for the nextflow-based genemapngs workflow${ANSIRESET}
+   ${ANSIGRY}===================================================================${ANSIRESET}
+   """
+}
+
 function checkprojectname() {
   projectdir=$(echo $(dirname ${0}))
-  pn=( $(grep -w 'project_name =' ${projectdir}/nextflow.config 2>/dev/null | sed "s|'||g") )
+  pn=( $(grep -w 'project_name' ${projectdir}/nextflow.config 2>/dev/null | sed "s|'||g") )
   if [ ! -e ${projectdir}/nextflow.config ]; then
     echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
     echo "See the documentation for how to run the workflow.\n"
     exit 1
   else
-    if [[ ${pn[2]} == NULL ]]; then
-      echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
-      sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
+    if [[ ${pn[2]} == NULL ]] || [[ ${pn[2]} == "" ]]; then
+      echo -e """
+   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   ${ANSIYLW}NOTE${ANSIRESET}: Project name in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' is not set! It has been initialized to 
+         '${ANSIGRN}myproject${ANSIRESET}'. This will be used as basename for all configuration files and some 
+	 output files. If you want to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'.
+   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+      """
+      #echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
+      sed -i -e "/project_name/s/.*/   project_name = 'myproject'/" ${projectdir}/nextflow.config
+      #sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
       projectname=myproject
-      sleep 2
+      sleep 1
     else
       projectname=${pn[2]}
+
+      echo -e """
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   ${ANSIYLW}NOTE${ANSIRESET}: The project name '${ANSIGRN}${projectname}${ANSIRESET}' in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' 
+         will be used as basename for all configuration files and some output files.
+         If you want to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'.
+   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
+      """
+      sleep 1
     fi
   fi
 }
 
+# display genemapngs banner
+banner
+
+# check and set project name in master config file
 checkprojectname
 
 function usage() {
    echo -e """
-   ${ANSIGRY}===================================================================${ANSIRESET}
-   ${ANSIBLU}Gene${ANSIRED}MAP${ANSIPPL}-NGS${ANSIRESET} ~ ${ANSIGRN}a wrapper for the nextflow-based genemapngs workflow${ANSIRESET}
-   ${ANSIGRY}===================================================================${ANSIRESET}
-
    Usage: genemapngs <workflow> <profile> [options] ...
 
            workflows:
@@ -384,6 +410,8 @@ params {
 
 $(setglobalparams ${7})
 """ >> ${projectname}-qc.config
+
+echo -e "configuration file '${projectname}-qc.config' created!\n"
 }
 
 
@@ -430,6 +458,8 @@ params {
 
 $(setglobalparams ${12})
 """ >> ${projectname}-trim.config
+
+echo -e "configuration file '${projectname}-trim.config' created!\n"
 }
 
 
@@ -480,6 +510,8 @@ params {
 
 $(setglobalparams ${12})
 """ >> ${projectname}-alignment.config
+
+echo -e "configuration file '${projectname}-alignment.config' created!\n"
 }
 
 function mergealignconfig() { #params passed as arguments
@@ -517,6 +549,8 @@ params {
 
 $(setglobalparams ${7})
 """ >> ${projectname}-merge-alignment.config
+
+echo -e "configuration file '${projectname}-merge-alignment.config' created!\n"
 }
 
 function varcallconfig() { #params passed as arguments
@@ -564,6 +598,8 @@ params {
 
 $(setglobalparams ${11})
 """ >> ${projectname}-varcall.config
+
+echo -e "configuration file '${projectname}-varcall.config' created!\n"
 }
 
 
@@ -602,6 +638,8 @@ params {
 
 $(setglobalparams ${8})
 """ >> ${projectname}-svarcall.config
+
+echo -e "configuration file '${projectname}-svarcall.config' created!\n"
 }
 
 
@@ -659,6 +697,8 @@ params {
 
 $(setglobalparams ${13})
 """ >> ${projectname}-jvarcall.config
+
+echo -e "configuration file '${projectname}-jvarcall.config' created!\n"
 }
 
 
@@ -705,6 +745,8 @@ params {
 
 $(setglobalparams ${12})
 """ >> ${projectname}-varfilter.config
+
+echo -e "configuration file '${projectname}-varfilter.config' created!\n"
 }
 
 
