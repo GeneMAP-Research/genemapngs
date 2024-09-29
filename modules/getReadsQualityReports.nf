@@ -103,6 +103,7 @@ process trimgalore() {
             --three_prime_clip_R1 ${params.crop} \
             --three_prime_clip_R2 ${params.crop} \
             --basename ${fastqName} \
+            --trim-n \
             --cores ${task.cpus} \
             -o . \
             ${readOne} \
