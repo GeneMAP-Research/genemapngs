@@ -28,28 +28,38 @@ function checkprojectname() {
     exit 1
   else
     if [[ ${pn[2]} == NULL ]] || [[ ${pn[2]} == "" ]]; then
-      echo -e """
-   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   ${ANSIYLW}NOTE${ANSIRESET}: Project name in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' is not set! It has been initialized to 
-         '${ANSIGRN}myproject${ANSIRESET}'. This will be used as basename for all configuration files and some 
-	 output files. If you want to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'.
-   ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
-      """
-      #echo -e "\n${ANSIYLW}WARN${ANSIRESET}: 'project_name' not set in ${projectdir}/nextflow.config file and will be set to 'myproject'.\n"
+      msg="""
+   ${ANSIYLW}NOTE${ANSIRESET}:
+   Project name in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' is not set! It has been initialized to
+   '${ANSIGRN}myproject${ANSIRESET}'. This will be used as basename for all configuration files and some
+   output files. If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
+      
+      noteruler="""
+   $( printf '+%.0s' {1..7} )"""
+
+      echo -en "${noteruler}"
+      echo -en "${msg}"
+      echo -en "${noteruler}\n"
+      
       sed -i -e "/project_name/s/.*/   project_name = 'myproject'/" ${projectdir}/nextflow.config
-      #sed -i "s|project_name = 'NULL'|project_name = 'myproject'|g" ${projectdir}/nextflow.config
       projectname=myproject
       sleep 1
     else
       projectname=${pn[2]}
 
-      echo -e """
-   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-   ${ANSIYLW}NOTE${ANSIRESET}: The project name '${ANSIGRN}${projectname}${ANSIRESET}' in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' 
-         will be used as basename for all configuration files and some output files.
-         If you want to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'.
-   +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++   
-      """
+      msg="""
+   ${ANSIYLW}NOTE${ANSIRESET}: 
+   The project name '${ANSIGRN}${projectname}${ANSIRESET}' in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' 
+   will be used as basename for all configuration files and some output files.
+   If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
+
+      noteruler="""
+   $( printf '+%.0s' {1..7} )"""
+
+      echo -en "${noteruler}"
+      echo -en "${msg}"
+      echo -en "${noteruler}\n"
+      
       sleep 1
     fi
   fi
