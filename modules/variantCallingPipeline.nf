@@ -648,7 +648,7 @@ process deepVariantCaller() {
     script:
         """
         run_deepvariant \
-            --model_type=WGS \
+            --model_type=\$([ ${params.exome} == true ] && echo WES || echo WGS) \
             --ref=${params.fastaRef} \
             --reads=${bamFile} \
             --output_gvcf=${bamName}.g.vcf.gz \
@@ -728,6 +728,8 @@ process dysguCallSvs() {
             -p ${task.cpus} \
             ${params.fastaRef} \
             -x temp \
+            --keep-small \
+            --clean \
             -v2 \
             ${bamFile} | \
             bgzip -c > ${bamName}.vcf.gz \
@@ -738,6 +740,9 @@ process indexVcf() {
     tag "processing ${vcf}"
     label 'bcftools'
     label 'mediumMemory'
+    publishDir \
+        path: "${params.output_dir}/vcf/dysgu/", \
+        mode: 'copy'
     input:
         path(vcf)
     output:
@@ -766,9 +771,12 @@ process dysguMergeVcfs() {
     output:
         path "${params.output_prefix}_dysgu_sv.vcf.gz"
         """
+        mkdir -p temp
         dysgu \
           merge \
           *.vcf.gz \
+          --wd temp/ \
+          --clean \
           -p ${task.cpus} | \
           bgzip -c > ${params.output_prefix}_dysgu_sv.vcf.gz
         """
@@ -782,7 +790,7 @@ process getBamChuncks() {
         path("${params.output_prefix}_bamchunk_aaaaaaa*.txt")
     script:
         """
-        readlink \$(ls *.bam) > ${params.output_prefix}_bamlist.txt
+        readlink \$(ls *.{bam,cram}) > ${params.output_prefix}_bamlist.txt
         split \
             -l 5 \
             -a 8 \
