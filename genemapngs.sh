@@ -2,6 +2,8 @@
 
 #--- genemapgwas workflow wrapper ---#
 
+projectdir=$(echo $(dirname ${0}))
+
 ANSIRESET='\e[0m'
 ANSIRED='\e[31m'
 ANSIGRN='\e[32m'
@@ -19,49 +21,74 @@ function banner() {
    """
 }
 
-function checkprojectname() {
-  projectdir=$(echo $(dirname ${0}))
-  pn=( $(grep -w 'project_name' ${projectdir}/nextflow.config 2>/dev/null | sed "s|'||g") )
-  if [ ! -e ${projectdir}/nextflow.config ]; then
-    echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
-    echo "See the documentation for how to run the workflow.\n"
-    exit 1
-  else
-    if [[ ${pn[2]} == NULL ]] || [[ ${pn[2]} == "" ]]; then
-      msg="""
-   ${ANSIYLW}NOTE${ANSIRESET}:
-   Project name in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' is not set! It has been initialized to
-   '${ANSIGRN}myproject${ANSIRESET}'. This will be used as basename for all configuration files and some
-   output files. If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
+function checkprojectparams() {
+   #projectdir=$(echo $(dirname ${0}))
+   if [ ! -e ${projectdir}/nextflow.config ]; then
+      echo -e "\n${ANSIRED}ERROR${ANSIRESET}: '${projectdir}/nextflow.config' not found!"
+      echo -e "Please generate one from ${projectdir}/system.config ."
+      echo -e "See workflow documentation on usage.\n"      
+      exit 1
+   else
+      grep '=' ${projectdir}/nextflow.config | \
+	 grep \
+	   -e 'account' \
+	   -e 'queue' \
+	   -e 'containers_dir' \
+	   -e 'workspace' \
+         > ${projectdir}/.nextflow.config
+
+      echo -e "\nChecking main project required parameters in '${projectdir}/nextflow.config'\n"
+
+      while read line; do
+        param=( $(echo $line | grep '=' | sed "s|'||g") )
+        paramname=${param[0]}
+        paramval=${param[2]}
+        if [[ ${paramval} == NULL ]] || [[ ${paramval} == "" ]]; then
+          echo -e "\n${ANSIRED}ERROR${ANSIRESET}: ${paramname} = '${paramval}' ... FAIL"
+          echo -e "Please set a value for ${paramname}.\n"
+          exit 1
+        fi
+      done < ${projectdir}/.nextflow.config
+      rm ${projectdir}/.nextflow.config
+
+      pn=( $(grep '=' ${projectdir}/nextflow.config | grep -w 'project_name' 2>/dev/null | sed "s|'||g") )
+ 
+      if [[ ${pn[2]} == NULL ]] || [[ ${pn[2]} == "" ]]; then
+         msg="""
+      ${ANSIYLW}NOTE${ANSIRESET}:
+      ${paramname} in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' is not set! It has been initialized to
+      '${ANSIGRN}myproject${ANSIRESET}'. This will be used as basename for all configuration files and some
+      output files. If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
       
-      noteruler="""
-   $( printf '+%.0s' {1..7} )"""
-
-      echo -en "${noteruler}"
-      echo -en "${msg}"
-      echo -en "${noteruler}\n"
+         noteruler="""
+      $( printf '+%.0s' {1..7} )"""
       
-      sed -i -e "/project_name/s/.*/   project_name = 'myproject'/" ${projectdir}/nextflow.config
-      projectname=myproject
-      sleep 1
-    else
-      projectname=${pn[2]}
-
-      msg="""
-   ${ANSIYLW}NOTE${ANSIRESET}: 
-   The project name '${ANSIGRN}${projectname}${ANSIRESET}' in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' 
-   will be used as basename for all configuration files and some output files.
-   If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
-
-      noteruler="""
-   $( printf '+%.0s' {1..7} )"""
-
-      echo -en "${noteruler}"
-      echo -en "${msg}"
-      echo -en "${noteruler}\n"
+         echo -en "${noteruler}"
+         echo -en "${msg}"
+         echo -en "${noteruler}\n"
+         echo ""
       
-      sleep 1
-    fi
+         sed -i -e "/project_name/s/.*/   project_name = 'myproject'/" ${projectdir}/nextflow.config
+         projectname=myproject
+         sleep 1
+      else
+         projectname=${pn[2]}
+      
+         msg="""
+      ${ANSIYLW}NOTE${ANSIRESET}: 
+      The project name '${ANSIGRN}${projectname}${ANSIRESET}' in '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}' 
+      will be used as basename for all configuration files and some output files.
+      If you wish to use a different name, edit '${ANSIGRN}${projectdir}/nextflow.config${ANSIRESET}'."""
+      
+         noteruler="""
+      $( printf '+%.0s' {1..7} )"""
+      
+         echo -en "${noteruler}"
+         echo -en "${msg}"
+         echo -en "${noteruler}\n"
+         echo ""
+         sleep 1
+      fi
   fi
 }
 
@@ -69,7 +96,7 @@ function checkprojectname() {
 banner
 
 # check and set project name in master config file
-checkprojectname
+checkprojectparams
 
 function usage() {
    echo -e """
@@ -826,8 +853,6 @@ else
 	     $threads \
 	     $njobs \
              $resource
-
-         #echo `nextflow -c ${out}-qc.config run qualitycontrol.nf -profile $profile`
       ;;
       trim)
          #pass profile as argument
