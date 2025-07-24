@@ -67,7 +67,7 @@ process getChromFromIntervalList() {
 }
 
 process splitVcfPerInterval() {
-    tag "processing ${interval.simpleName}..."
+    tag "processing ${interval.baseName}..."
     label 'bcftools'
     label 'variantCaller'
     //publishDir \
@@ -80,7 +80,7 @@ process splitVcfPerInterval() {
             path(vcf), \
             path(index)
     output:
-        path("${interval.simpleName}.vcf.gz")
+        path("${interval.baseName}.vcf.gz")
     script:
         """
         bcftools \
@@ -88,7 +88,7 @@ process splitVcfPerInterval() {
             -r \$(cat ${interval} | sed 's/ /:/1; s/ /-/1') \
             --threads ${task.cpus} \
             -Oz \
-            -o ${interval.simpleName}.vcf.gz \
+            -o ${interval.baseName}.vcf.gz \
             ${vcf}
         """
 }
@@ -125,14 +125,14 @@ process annovarGRCh37() {
     input:
         path(vcfFile)
     output:
-        path("${vcfFile.simpleName}*multianno.{vcf.gz,txt.gz}")
+        path("${vcfFile.baseName}*multianno.{vcf.gz,txt.gz}")
     script:
         """
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg19 \
-            -out "${vcfFile.simpleName}" \
+            -out "${vcfFile.baseName}" \
             -remove \
             -protocol refGene,knownGene,gwasCatalog,genomicSuperDups,cytoBand,exac03,avsnp151,abraom,dbnsfp33a,regsnpintron,esp6500siv2_all,SAS.sites.2015_08,EUR.sites.2015_08,EAS.sites.2015_08,AMR.sites.2015_08,ALL.sites.2015_08,AFR.sites.2015_08,nci60,clinvar_20210501,refGeneWithVer,revel,mitimpact24,intervar_20180118,hrcr1,gme,gnomad211_exome,gene4denovo201907,dbscsnv11,dbnsfp31a_interpro,cosmic70 \
             -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f \
@@ -143,7 +143,7 @@ process annovarGRCh37() {
             --maxgenethread ${task.cpus} \
             --thread ${task.cpus}
 
-        for i in ${vcfFile.simpleName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
+        for i in ${vcfFile.baseName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
         """
 }
 
@@ -162,14 +162,14 @@ process minimalAnnovarGRCh37() {
     input:
         path(vcfFile)
     output:
-        path("${vcfFile.simpleName}*multianno.{vcf.gz,txt.gz}")
+        path("${vcfFile.baseName}*multianno.{vcf.gz,txt.gz}")
     script:
         """
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg19 \
-            -out "${vcfFile.simpleName}" \
+            -out "${vcfFile.baseName}" \
             -remove \
             -protocol refGene,knownGene,cytoBand,gwasCatalog,avsnp151 \
             -operation g,g,r,r,f \
@@ -180,7 +180,7 @@ process minimalAnnovarGRCh37() {
             --maxgenethread ${task.cpus} \
             --thread ${task.cpus}
 
-        for i in ${vcfFile.simpleName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
+        for i in ${vcfFile.baseName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
         """
 }
 
@@ -192,14 +192,14 @@ process annovarGRCh38() {
     input:
         path(vcfFile)
     output:
-        path "${vcfFile.simpleName}*multianno.{vcf.gz,txt.gz}"
+        path "${vcfFile.baseName}*multianno.{vcf.gz,txt.gz}"
     script:
         """
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg38 \
-            -out "${vcfFile.simpleName}" \
+            -out "${vcfFile.baseName}" \
             -remove \
             -protocol refGene,knownGene,ucscGenePfam,cytoBand,keggPathway,dbnsfp47a,dbnsfp47a_interpro,dbscsnv11,intervar_20180118,cosmic70,exac03,gene4denovo201907,gnomad41_genome,gnomad41_exome,kaviar_20150923,ALL.sites.2015_08,gme,abraom,revel,avsnp151,clinvar_20240917,regsnpintron,gwasCatalog,GTEx_v8_eQTL,GTEx_v8_sQTL \
             -operation g,g,r,r,r,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,f,r,r,r \
@@ -210,7 +210,7 @@ process annovarGRCh38() {
             --maxgenethread ${task.cpus} \
             --thread ${task.cpus}
 
-        for i in ${vcfFile.simpleName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
+        for i in ${vcfFile.baseName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
         """
 }
 
@@ -229,14 +229,14 @@ process minimalAnnovarGRCh38() {
     input:
         path(vcfFile)
     output:
-        path "${vcfFile.simpleName}*multianno.{vcf.gz,txt.gz}"
+        path "${vcfFile.baseName}*multianno.{vcf.gz,txt.gz}"
     script:
         """
         table_annovar.pl \
             ${vcfFile} \
             ${params.annovarDB} \
             -buildver hg38 \
-            -out "${vcfFile.simpleName}" \
+            -out "${vcfFile.baseName}" \
             -remove \
             -protocol refGene,knownGene,gwasCatalog,cytoBand,avsnp151 \
             -operation g,g,r,r,f \
@@ -247,7 +247,7 @@ process minimalAnnovarGRCh38() {
             --maxgenethread ${task.cpus} \
             --thread ${task.cpus}
 
-        for i in ${vcfFile.simpleName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
+        for i in ${vcfFile.baseName}*.{vcf,txt}; do bgzip -@ ${task.cpus} \${i}; done
         """
 }
 

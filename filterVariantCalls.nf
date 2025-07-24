@@ -47,16 +47,22 @@ workflow {
             .set { recalTable_tranches_snp }
         vqsrIndel( indel_indexed )
             .set { recalTable_tranches_indel }
-        applyVqsrSnp(recalTable_tranches_snp).view()
+        applyVqsrSnp(recalTable_tranches_snp)
             .set { recalibrated_vcf_snp }
-        applyVqsrIndel(recalTable_tranches_indel).view()
+        applyVqsrIndel(recalTable_tranches_indel)
             .set { recalibrated_vcf_indel }
-        recalibrated_vcf_snp
-            .combine(recalibrated_vcf_indel, by:0)
+        recalibrated_vcf_snp.view()
+            .map { snpname, snp, snpindex -> tuple("${snp.simpleName}", snp, snpindex) }
+            .set { snprecal }
+        recalibrated_vcf_indel.view()
+            .map { indelname, indel, indelindex -> tuple("${indel.simpleName}", indel, indelindex) }
+            .set { indelrecal }
+        snprecal
+            .combine(indelrecal, by:0)
             .view()
             .set { recalibrated }
-        mergedVcf = mergeVCFs( recalibrated ).view()
-        //filtered = filterGatkCalls(filter_input).collect().view()
+        mergedVcf = mergeVCFs( recalibrated )
+        filtered = filterGatkCalls(mergedVcf).collect().view()
         //merged_vcf_index = indexFilteredVcf(mergedVcf)
     } else { 
         vcf.combine(vcf_index).set { vcfstats_input }     

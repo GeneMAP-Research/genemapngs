@@ -575,7 +575,7 @@ process callVariantsFromExistingGenomicsDB() {
 process collectIntervalsPerChromosome() {
     tag "Collecting intervals per chromosome..."
     label 'bcftools'
-    label 'variantCaller'
+    label 'gatkVariantCaller'
     publishDir \
         path: "${params.output_dir}/vcf/", \
         mode: 'copy'
@@ -595,7 +595,7 @@ process collectIntervalsPerChromosome() {
 
 
         for chrom in \$(awk '{print \$1}' vcf_chr_list.txt | sort -V | uniq); do
-            awk -v chr="\${chrom}" '\$1 == chr' vcf_chr_list.txt > \${chrom}_vcfs_list.txt
+            awk -v chr="\${chrom}" '\$1 == chr' vcf_chr_list.txt | sort -V > \${chrom}_vcfs_list.txt
         done
         """
 }
@@ -603,7 +603,7 @@ process collectIntervalsPerChromosome() {
 process concatPerChromIntervalVcfs() {
     tag "Concatenating VCF files per chromosome..."
     label 'bcftools'
-    label 'variantCaller'
+    label 'gatkVariantCaller'
     //storeDir "${params.output_dir}/vcf/"
     publishDir \
         path: "${params.output_dir}/vcf/", \
@@ -643,7 +643,7 @@ process concatPerChromIntervalVcfs() {
 process concatPerChromosomeVcfs() {
     tag "Concatenating all VCF files into ${params.output_prefix}.vcf.gz..."
     label 'bcftools'
-    label 'variantCaller'
+    label 'gatkVariantCaller'
     publishDir \
         path: "${params.output_dir}/vcf/", \
         mode: 'move'
