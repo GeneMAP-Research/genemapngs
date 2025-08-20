@@ -255,7 +255,7 @@ process filterGatkCalls() {
     label 'bcftools'
     label 'longRun'
     publishDir \
-        path: "${params.output_dir}/filtered/", \
+        path: "${params.output_dir}/vqsr/", \
         mode: 'copy'
     input:
         tuple \
@@ -265,7 +265,8 @@ process filterGatkCalls() {
     output:
         tuple \
             val("${vcfbase}"), \
-            path("${vcfbase}.filtered.vcf.gz")
+            path("${vcfbase}.PASS.vcf.gz"), \
+            path("${vcfbase}.PASS.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -274,12 +275,12 @@ process filterGatkCalls() {
             --threads ${task.cpus} \
             -Oz \
             ${vcf} | \
-        tee "${vcfbase}.filtered.vcf.gz" | \
+        tee "${vcfbase}.PASS.vcf.gz" | \
         bcftools \
             index \
             --threads ${task.cpus} \
             -ft \
-            --output "${vcfbase}.filtered.vcf.gz.tbi"
+            --output "${vcfbase}.PASS.vcf.gz.tbi"
         """
 }
 
@@ -355,7 +356,7 @@ process leftnormalizeSnvs() {
     label 'bcftools'
     label 'longRun'
     publishDir \
-        path: "${params.output_dir}/filtered/", \
+        path: "${params.output_dir}/leftnorm/", \
         mode: 'copy'
     input:
         tuple \
@@ -363,8 +364,8 @@ process leftnormalizeSnvs() {
             path(vcf_index)
     output:
         tuple \
-            path("${input_vcf.baseName}-filtered-leftnorm.vcf.gz"), \
-            path("${input_vcf.baseName}-filtered-leftnorm.vcf.gz.tbi")
+            path("${input_vcf.baseName}-leftnorm.vcf.gz"), \
+            path("${input_vcf.baseName}-leftnorm.vcf.gz.tbi")
     script:
         """
         bcftools \
@@ -378,11 +379,11 @@ process leftnormalizeSnvs() {
             -c \$([[ ${params.minAC} == null ]] && echo 1 || echo ${params.minAC}) \
             --threads ${task.cpus} \
             -Oz | \
-            tee "${input_vcf.baseName}-filtered-leftnorm.vcf.gz" | \
+            tee "${input_vcf.baseName}-leftnorm.vcf.gz" | \
         bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${input_vcf.baseName}-filtered-leftnorm.vcf.gz.tbi"
+            --output "${input_vcf.baseName}-leftnorm.vcf.gz.tbi"
         """
 }
 
@@ -398,7 +399,7 @@ process getCleanVcf() {
             path(input_vcf), \
             path(vcf_index)
     output:
-        path "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.{gz,gz.tbi}"
+        path "${input_vcf.baseName}-leftnorm-clean.vcf.{gz,gz.tbi}"
     script:
         """
         bcftools \
@@ -407,11 +408,11 @@ process getCleanVcf() {
             -r \$(echo chr{1..22}, chrX | sed 's/[[:space:]]//g') \
             -Oz \
             "${input_vcf}" | 
-            tee "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz" | \
+            tee "${input_vcf.baseName}-leftnorm-clean.vcf.gz" | \
             bcftools index \
             --threads ${task.cpus} \
             -ft \
-            --output "${input_vcf.baseName}-filtered-leftnorm-clean.vcf.gz.tbi"
+            --output "${input_vcf.baseName}-leftnorm-clean.vcf.gz.tbi"
         """
 }
 
