@@ -29,8 +29,8 @@ include {
 workflow {
     println "\nWorkflow starts here\n"
 
-    vcf = getVcf()
-    vcf_index = getVcfIndex(vcf)
+    vcf_index = getVcf().view()
+    //vcf_index = getVcfIndex(vcf)
 
     if(params.joint_caller.toUpperCase() == "GATK") {
         splitVcfs(vcf_index)
