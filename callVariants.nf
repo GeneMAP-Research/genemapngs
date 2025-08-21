@@ -35,6 +35,9 @@ include {
     concatPerChromosomeVcfs;
     getGvcfFiles;
     getGvcfList;
+    getVcfFiles;
+    getVcfList;
+    getContigs;
     getGenomicsdbWorkspaces;
     combineGvcfs;
     getVcfGenomicIntervals;
@@ -158,12 +161,22 @@ workflow {
             MtCaller(bamFileSet)
         }
         else if(params.single_caller.toUpperCase() == 'DYSGU') {
-            dysguCallSvs(bamFileSet)
-                .set { vcf }
-            indexVcf(vcf)
-                .collect()
-                .set { vcfs }
-            dysguMergeVcfs(vcfs)
+            if(params.input_ftype.toUpperCase() == 'VCF' ) {
+                vcfs = getVcfFiles().collect()
+            }
+            else {
+                dysguCallSvs(bamFileSet)
+                    .set { vcf }
+                indexVcf(vcf)
+                    .collect()
+                    .set { vcfs }
+            }                
+            vcflist = getVcfList(vcfs)
+            getContigs(vcflist)
+                .flatten()
+                .combine(vcflist)
+                .set { merge_input }
+            dysguMergeVcfs(merge_input).view()
         }
         else if(params.single_caller.toUpperCase() == 'MANTA') {
             bamFileSet

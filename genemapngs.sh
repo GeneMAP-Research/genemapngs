@@ -340,7 +340,9 @@ function svarcallusage() {
 
            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
                                   This is important for resource allocation.
-           --alignment_dir      : (required) Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
+           --ftype              : Input file type; BAM/CRAM, VCF [default: BAM/CRAM].
+           --alignment_dir      : (required for BAM/CRAM input) Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
+           --vcf_dir            : (required for VCF input) Path to VCF files and their indexes (.tbi). For 'dysgu merge' only.
            --out                : Output prefix (optional) [default: my-ngs].
            --output_dir         : (optional) [results will be saved to parent of input directory]
            --scaller            : Single sample variant caller; gatk-hap, gatk-som, gatk-mt, deepvariant, dysgu, manta [default: gatk-hap]
@@ -680,18 +682,23 @@ params {
 
   mode = 'svarcall'
   exome = $1
-  alignment_dir = '$2'
-  output_dir = '$3'
-  output_prefix = '$4'
-  single_caller = '$5'
-  threads = ${6}
-  njobs = ${7}
+  input_ftype = '$2'
+  alignment_dir = '$3'
+  vcf_dir = '$4'
+  output_dir = '$5'
+  output_prefix = '$6'
+  single_caller = '$7'
+  threads = ${8}
+  njobs = ${9}
 
 
   /*****************************************************************************************
   ~ exome: (optional) for GLNexus variant calling, manta structural variant calling, and for 
     resource management.
+  ~ input_ftype: (required) Input file type; BAM/CRAM, VCF [default: BAM/CRAM].
   ~ alignment_dir: (required) path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).
+  ~ vcf_dir: (required for VCF input) Path to VCF files and their indexes (.tbi). 
+    For 'dysgu merge' only.
   ~ output_dir: (optional) defaults to parent of input directory ['input_dir/../']
   ~ output_prefix: (optional) project name.
   ~ single_caller: (optional) gatk-hap, gatk-som, gatk-mt, deepvariant, dysgu, manta 
@@ -1216,11 +1223,12 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,alignment_dir:,output_dir:,out:,scaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,ftype:,alignment_dir:,vcf_dir:,output_dir:,out:,scaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
 
          #defaults
-         #ftype=FASTQ        
-         alignment_dir=NULL   
+         ftype=BAM
+         alignment_dir=NULL
+	 vcf_dir=NULL
          output_dir=NULL      
          output_prefix="myngs"
          ped=NULL             
@@ -1235,8 +1243,9 @@ else
          while true; do
             case $1 in
                --wgs) exome=false; resource=resource-selector-wgs.config; shift;;
-               #--ftype) ftype="$2"; shift 2;;
+               --ftype) ftype="$2"; shift 2;;
                --alignment_dir) alignment_dir="$2"; shift 2;;
+               --vcf_dir) vcf_dir="${2}"; shift 2;;
                --output_dir) output_dir="${2}"; shift 2;;
                --out) output_prefix="$2"; shift 2;;
                --scaller) scaller="$2"; shift 2;;
@@ -1248,9 +1257,15 @@ else
             esac
          done
 
-         check_required_params \
-             output_dir,$output_dir \
-	     alignment_dir,$alignment_dir && \
+	 if [[ "${ftype}" == "VCF" ]]; then
+             check_required_params \
+                 output_dir,$output_dir \
+	         vcf_dir,$vcf_dir
+	 else
+             check_required_params \
+                 output_dir,$output_dir \
+                 alignment_dir,$alignment_dir 
+         fi && \		 
          check_optional_params \
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
@@ -1258,7 +1273,9 @@ else
 	     njobs,$njobs && \
          svarcallconfig \
 	     $exome \
+	     $ftype \
 	     $alignment_dir \
+	     $vcf_dir \
 	     $output_dir \
 	     $output_prefix \
 	     $scaller \

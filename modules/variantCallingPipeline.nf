@@ -21,6 +21,11 @@ def getGvcfFiles() {
                   .flatten()
 }
 
+def getVcfFiles() {
+    return channel.fromPath( params.vcf_dir + "/*.vcf.{gz,gz.tbi}" )
+                  .flatten()
+}
+
 def getGenomicsdbWorkspaces() {
     return channel.fromPath( params.genomicsdb_workspace_dir + "/*", type: 'dir' )
                   .flatten()
@@ -36,6 +41,40 @@ def getGenomicInterval(gvcfList) {
     }
 }
 
+process getVcfList() {
+    tag "creating VCF list..."
+    input:
+        path(vcfList)
+    output:
+        path("vcf.list")
+    script:
+        """
+        readlink *.vcf.gz > vcf.list
+        """
+}
+
+process getContigs() {
+    tag "Extracting contigs from VCF..."
+    label 'bcftools'
+    input:
+        path(vcfList)
+    output:
+        path("*.list.txt")
+    script:
+        """
+        vcf=\$(head -1 ${vcfList})
+        bcftools \
+            index \
+            --stats \
+            \${vcf} | \
+        awk  '{print \$1}' \
+        > contigs_list.txt 
+
+        for contig in \$(cat contigs_list.txt); do
+            echo "\${contig} ${vcfList}" > \${contig}.list.txt
+        done
+        """
+}
 
 process getGvcfList() {
     tag "creating GVCF list..."
@@ -839,25 +878,43 @@ process indexVcf() {
 }
 
 process dysguMergeVcfs() {
-    tag "Writing genotypes to ${params.output_prefix}_dysgu_sv.vcf.gz"
+    tag "Writing genotypes to ${contig.simpleName}_${params.output_prefix}_dysgu_sv.vcf.gz"
     label 'dysgu'
     label 'dysgu_caller'
     publishDir \
         path: "${params.output_dir}/vcf/", \
         mode: 'copy'
     input:
-        path(vcfs)
+        tuple \
+            path(contig), \
+            path(vcflist)
     output:
-        path "${params.output_prefix}_dysgu_sv.vcf.gz"
+        path "${contig.simpleName}_${params.output_prefix}_dysgu_sv.vcf.gz"
         """
-        mkdir -p temp
+        mkdir -p vcf temp
+
+        for vcf in \$(cat ${vcflist}); do
+            bcftools \
+                view \
+                -r ${contig.simpleName} \
+                --threads ${task.cpus} \
+                -Oz \
+                \${vcf} | \
+                tee vcf/${contig.simpleName}_\$(basename \${vcf}) | \
+            bcftools \
+                index \
+                -ft \
+                --threads ${task.cpus} \
+                --output vcf/${contig.simpleName}_\$(basename \${vcf}).tbi
+        done
+        
         dysgu \
           merge \
-          *.vcf.gz \
+          vcf/*.vcf.gz \
           --wd temp/ \
           --clean \
           -p ${task.cpus} | \
-          bgzip -c > ${params.output_prefix}_dysgu_sv.vcf.gz
+          bgzip -c > ${contig.simpleName}_${params.output_prefix}_dysgu_sv.vcf.gz
         """
 }
 
