@@ -53,24 +53,24 @@ workflow {
         alignment = getAlignment().view()
     }
 
-    // TEST GATK BUNDLES FOR T2T WITH BQSR //
+//    // TEST GATK BUNDLES FOR T2T WITH BQSR //
+//
+//    recalTable = recalibrateBaseQualityScores(alignment)
+//    alignment.combine(recalTable, by: 0).set { applyBQSR_input }
+//    recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
 
-    recalTable = recalibrateBaseQualityScores(alignment)
-    alignment.combine(recalTable, by: 0).set { applyBQSR_input }
-    recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
 
 
-
-//    if(!(params.buildVersion == 't2t')) {
-//        recalTable = recalibrateBaseQualityScores(alignment)
-//        alignment.combine(recalTable, by: 0).set { applyBQSR_input }
-//        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
-//    }
-//    else {
-//        recalTable = recalibrateBaseQualityScores(alignment)
-//        alignment.combine(recalTable, by: 0).set { applyBQSR_input }
-//        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
-//    }
+    if(!(params.buildVersion == 't2t')) {
+        recalTable = recalibrateBaseQualityScores(alignment)
+        alignment.combine(recalTable, by: 0).set { applyBQSR_input }
+        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+    }
+    else {
+        recalTable = recalibrateBaseQualityScores(alignment)
+        alignment.combine(recalTable, by: 0).set { applyBQSR_input }
+        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+    }
 
 }
 

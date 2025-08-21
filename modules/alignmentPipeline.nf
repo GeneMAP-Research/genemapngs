@@ -106,9 +106,7 @@ process alignReadsBWA() {
     label 'readAligner'
     cache 'lenient'
     if(params.buildVersion == 't2t') {
-        publishDir \
-            path: "${params.output_dir}/cram/", \
-            mode: 'copy'
+        storeDir "${params.output_dir}/cram/"
     } else {
         publishDir \
             path: "${params.output_dir}/cram/dupsmarked/"
@@ -661,8 +659,7 @@ process applyBaseQualityRecalibrator() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'applyBqsr'
-    publishDir \
-        path: "${params.output_dir}/cram/"
+    storeDir "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \

@@ -65,77 +65,74 @@ workflow {
         dupsMarked = alignReadsBWA(fastq)
     }
 
-    // TEST GATK BUNDLES FOR T2T WITH BQSR //
+    if(!(params.buildVersion == 't2t')) {
+        dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
+        recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
+        dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
+        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+    }
+    else {
+        dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
 
-    dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
-    recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
-    dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
-    recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+        // TEST GATK BUNDLES FOR T2T WITH BQSR //
+        //dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
+        //recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
+        //dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
+        //recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+    }
+
+//   alignment = fixAlignmentMate(sam)
+//
+//   if(params.buildVersion == 't2t') {
+//       if(params.spark == true) {
+//           dupsMarked = markDuplicatesSpark(alignment)
+//           fixedAlignment = fixAlignmentTags(dupsMarked)
+//       }
+//       else {
+//
+//           //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+//           // BQSR is not implemented for t2t reference //
+//           // because there are no gatk bundles for yet //
+//           //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
+//
+//           if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
+//             sortedAlignment = sortAlignment(alignment)
+//             dupsMarked = markDuplicates(sortedAlignment)
+//             dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
+//           }
+//           else {
+//             sortedAlignment = sortAlignmentToBam(alignment)
+//             dupsMarked = markDupSambam(sortedAlignment)
+//             dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
+//           }
+//       }
+//   } 
+//   else {
+//       if(params.spark == true) {
+//           dupsMarked = markDuplicatesSpark(alignment)
+//           fixedAlignment = fixAlignmentTags(dupsMarked)
+//           recalibrated = recalibrateBaseQualityScoresSpark(fixedAlignment)
+//           cram = convertBamToCram(recalibrated)
+//       }
+//       else {
+//           if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
+//             sortedAlignment = sortAlignment(alignment)
+//             dupsMarked = markDuplicates(sortedAlignment)
+//           }
+//           else {
+//             sortedAlignment = sortAlignmentToBam(alignment)
+//             dupsMarked = markDupSambam(sortedAlignment)
+//           }
+//
+//           dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
+//           recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
+//           dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
+//           recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
+//           //cram = convertBamToCram(recalibrated)
+//       }
+//   }
 
 
-//    if(!(params.buildVersion == 't2t')) {
-//        dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
-//        recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
-//        dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
-//        recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
-//    }
-//    else {
-//        dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
-//    }
-
-/*
-*    alignment = fixAlignmentMate(sam)
-*
-*    if(params.buildVersion == 't2t') {
-*        if(params.spark == true) {
-*            dupsMarked = markDuplicatesSpark(alignment)
-*            fixedAlignment = fixAlignmentTags(dupsMarked)
-*        }
-*        else {
-*
-*            //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
-*            // BQSR is not implemented for t2t reference //
-*            // because there are no gatk bundles for yet //
-*            //=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=//
-*
-*            if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
-*              sortedAlignment = sortAlignment(alignment)
-*              dupsMarked = markDuplicates(sortedAlignment)
-*              dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
-*            }
-*            else {
-*              sortedAlignment = sortAlignmentToBam(alignment)
-*              dupsMarked = markDupSambam(sortedAlignment)
-*              dupsMarkedIndexed = indexAndCopyAlignment(dupsMarked)
-*            }
-*        }
-*    } 
-*    else {
-*        if(params.spark == true) {
-*            dupsMarked = markDuplicatesSpark(alignment)
-*            fixedAlignment = fixAlignmentTags(dupsMarked)
-*            recalibrated = recalibrateBaseQualityScoresSpark(fixedAlignment)
-*            cram = convertBamToCram(recalibrated)
-*        }
-*        else {
-*            if(params.dup_marker.toUpperCase() == "SAMTOOLS") {
-*              sortedAlignment = sortAlignment(alignment)
-*              dupsMarked = markDuplicates(sortedAlignment)
-*            }
-*            else {
-*              sortedAlignment = sortAlignmentToBam(alignment)
-*              dupsMarked = markDupSambam(sortedAlignment)
-*            }
-*
-*            dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
-*            recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
-*            dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
-*            recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)
-*            //cram = convertBamToCram(recalibrated)
-*        }
-*    }
-*
-*/
 
 }
 
