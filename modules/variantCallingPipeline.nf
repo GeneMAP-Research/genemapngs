@@ -1013,7 +1013,7 @@ process dysguCallSvs() {
             path(bamFile), \
             path(bamIndex)
     output:
-        path "${bamName}.vcf.gz"
+        path("${bamName}.vcf.gz")
     script:
         """
         dysgu \
@@ -1045,7 +1045,7 @@ process dellyCallSvs() {
         tuple \
             val(bamName), \
             path(bamFile), \
-            path "${bamName}.delly.bcf"
+            path("${bamName}.delly.bcf")
     script:
         """
         delly \
