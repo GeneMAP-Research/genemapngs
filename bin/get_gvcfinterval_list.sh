@@ -50,6 +50,7 @@ else
   
   while read interval; do
     echo $interval > ${out}/$(echo ${interval} | sed 's/ /./g').bed
-  done < .interval_list
-  rm .interval_list
+    echo $interval
+  done < .interval_list > ${out}/$(basename ${vcf/.vcf.gz/}_20M_chunk_1k_overlap_interval_list.txt)
+  rm .interval_list contigs.txt
 fi

@@ -22,8 +22,8 @@ def getGvcfFiles() {
 }
 
 def getVcfFiles() {
-    return channel.fromPath( params.vcf_dir + "/*.vcf.{gz,gz.tbi}" )
-                  .flatten()
+    return channel
+               .fromFilePairs( params.vcf_dir + "/*.vcf.{gz,gz.tbi}", size: 2 )
 }
 
 def getGenomicsdbWorkspaces() {
@@ -32,9 +32,15 @@ def getGenomicsdbWorkspaces() {
 }
 
 
-def getGenomicInterval(gvcfList) {
+def getGenomicInterval(vcfList) {
     if(params.interval == "NULL") {
-        genomicInterval = getVcfGenomicIntervals(gvcfList).flatten()
+        if(params.single_caller.toUpperCase() == "DYSGU") {
+            contigs = getContigs(vcflist)
+            genomicInterval = getOverlappingVcfGenomicIntervals(contigs)
+        }
+        else {
+            genomicInterval = getVcfGenomicIntervals(vcfList).flatten()
+        }
     }
     else {
         genomicInterval = getGenomicIntervalList().flatten()
@@ -53,6 +59,78 @@ process getVcfList() {
         """
 }
 
+process getContigsFromVcf() {
+    tag "processing ${vcf}..."
+    label 'bcftools'
+    label 'mediumMemory'
+    input:
+        tuple \
+            path(vcf), \
+            path(index)
+    output:
+        tuple \
+            path("contigs.list.txt"), \
+            path(vcf), \
+            path(index)
+    script:
+        """
+        bcftools \
+           reheader \
+           -f ${params.fastaRef}.fai \
+           ${vcf} | \
+           tee tmp.vcf.gz | \
+        bcftools \
+           index \
+           -ft \
+           --threads ${task.cpus} \
+           -o tmp.vcf.gz.tbi
+
+        bcftools \
+            index \
+            --stats \
+            tmp.vcf.gz | \
+        awk '{print \$1,\$2}' > contigs.list.txt
+        """
+}
+
+process getOverlappingVcfGenomicIntervals() {
+    tag "extracting invervals from GVCF file..."
+    label 'bcftools'
+    cache 'lenient'
+    input:
+        tuple \
+            path(contigs), \
+            path(vcf), \
+            path(index)
+    output:
+        path "*.bed"
+    script:
+        template 'get_overlapping_vcfinterval_list.sh'
+}
+
+process getChromFromVcf() {
+    tag "processing ${vcf}..."
+    label 'bcftools'
+    label 'mediumMemory'
+    input:
+        tuple \
+            path(contigs), \
+            path(vcf), \
+            path(index)
+    output:
+        tuple \
+            path("*.txt"), \
+            path(vcf), \
+            path(index)
+    script:
+        """
+        for chrom in \$(awk '{print \$1}' ${contigs}); do 
+            echo \${chrom} \
+            > \${chrom}.txt; 
+        done
+        """
+}
+
 process getContigs() {
     tag "Extracting contigs from VCF..."
     label 'bcftools'
@@ -64,15 +142,25 @@ process getContigs() {
         """
         vcf=\$(head -1 ${vcfList})
         bcftools \
+           reheader \
+           -f ${params.fastaRef}.fai \
+           \${vcf} | \
+           tee tmp.vcf.gz | \
+        bcftools \
+           index \
+           -ft \
+           --threads ${task.cpus} \
+           -o tmp.vcf.gz.tbi
+        bcftools \
             index \
             --stats \
-            \${vcf} | \
+            tmp.vcf.gz | \
         awk  '{print \$1}' \
         > contigs_list.txt 
 
-        for contig in \$(cat contigs_list.txt); do
-            echo "\${contig} ${vcfList}" > \${contig}.list.txt
-        done
+        #for contig in \$(cat contigs_list.txt); do
+        #    echo "\${contig} ${vcfList}" > \${contig}.list.txt
+        #done
         """
 }
 
@@ -126,7 +214,7 @@ process getAlignmentGenomicIntervals() {
         > .interval_list
 
         while read interval; do
-            echo \$interval > \$(echo \${interval} | sed 's/[:*]/_/g' | sed 's/ /_/g').bed
+            echo \$interval > \$(echo \${interval} | sed 's/[:*]/_/g; s/ /\\./1; s/ /_/g').bed
         done < .interval_list
 
         ### GATK LIST INTERVAL
@@ -166,7 +254,7 @@ process getVcfGenomicIntervals() {
         > .interval_list
 
         while read interval; do
-            echo \$interval > \$(echo \${interval} | sed 's/[:*]/_/g' | sed 's/ /_/g').bed
+            echo \$interval > \$(echo \${interval} | sed 's/[:*]/_/g; s/ /\\./1; s/ /_/g').bed
         done < .interval_list
 
         """
@@ -184,9 +272,96 @@ process getGenomicIntervalList() {
             if [[ -z \$(echo \${interval} | awk '{print \$3}') ]]; then
                 echo \${interval} > \$(echo \${interval} | sed 's/[:*]/_/g').list
             else
-                echo \${interval} > \$(echo \${interval} | sed 's/[:*]/_/g' | sed 's/ /_/g').bed
+                echo \${interval} > \$(echo \${interval} | sed 's/[:*]/_/g; s/ /\\./1; s/ /_/g').bed
             fi
         done < ${params.interval}
+        """
+}
+
+process splitVcfPerInterval() {
+    tag "processing ${interval.baseName}..."
+    label 'bcftools'
+    label 'mediumMemory'
+    input:
+        tuple \
+            val(chrom), \
+            path(vcf), \
+            path(index), \
+            path(interval)
+    output:
+        path("${interval.baseName}.vcf.gz*")
+    script:
+        """
+        bcftools \
+            view \
+            -r \$(cat ${interval} | sed 's/ /:/1; s/ /-/1') \
+            --threads ${task.cpus} \
+            -Oz \
+            -o ${interval.baseName}.vcf.gz \
+            ${vcf}
+
+        bcftools \
+            index \
+            -ft \
+            --threads ${task.cpus} \
+            ${interval.baseName}.vcf.gz
+        """
+}
+
+process splitVcfsPerInterval() {
+    tag "processing ${interval.baseName}..."
+    label 'bcftools'
+    label 'mediumMemory'
+    input:
+        tuple \
+            val(chrom), \
+            path(interval), \
+            path(vcfs)
+    output:
+        tuple \
+            val(chrom), \
+            path(interval), \
+            path("${interval.baseName}_vcflist.txt")
+    script:
+        """
+        intvl=\$(cat ${interval} | sed 's/ /:/1; s/ /-/1')
+        for vcf in *.vcf.gz; do
+            bcftools \
+                view \
+                -r \${intvl} \
+                --threads ${task.cpus} \
+                -Oz \
+                -o \$(basename \${vcf/.vcf.gz/}_\${intvl}.vcf.gz) \
+                \${vcf}
+
+            bcftools \
+                index \
+                -ft \
+                --threads ${task.cpus} \
+                \$(basename \${vcf/.vcf.gz/}_\${intvl}.vcf.gz)
+        done
+
+        realpath *_\${intvl}.vcf.gz > ${interval.baseName}_vcflist.txt
+        """
+}
+
+process validateVcfChunks() {
+    tag "Validating VCF chunks..."
+    input:
+        path(vcf)
+    output:
+        path("*.validated.vcf.gz*")
+    script:
+        """
+        readlink *.gz > vcflist.txt
+        rm -rf *.vcf.gz*
+        for vcf in \$(cat vcflist.txt); do
+            vcfcontent=\$(zgrep -v '^#' \${vcf} | head -1 | cut -f1)
+            if [[ ! \${vcfcontent} == "" ]]; then
+                ln -s \${vcf} \$(basename \${vcf/.vcf.gz/.validated.vcf.gz})
+                ln -s \${vcf}.tbi \$(basename \${vcf/.vcf.gz/.validated.vcf.gz}.tbi)
+            fi
+        done
         """
 }
 
@@ -629,7 +804,7 @@ process collectIntervalsPerChromosome() {
 
         while read line; do 
             data=( \$line );
-            echo \$(basename \${data[0]} | sed 's/_/ /g' | awk '{print \$1,\$2}') \$(readlink \${data[1]})
+            echo \$(basename \${data[0]} | sed 's/[_\\.]/ /g' | awk '{print \$1,\$2}') \$(readlink \${data[1]})
         done < vcfs_list.txt | sort -g -k1 -k2 > vcf_chr_list.txt
 
 
@@ -915,6 +1090,39 @@ process dysguMergeVcfs() {
           --clean \
           -p ${task.cpus} | \
           bgzip -c > ${contig.simpleName}_${params.output_prefix}_dysgu_sv.vcf.gz
+        """
+}
+
+process dysguMergeVcfsPerInterval() {
+    tag "Writing genotypes to ${params.output_prefix}_${interval.baseName}_dysgu_sv.vcf.gz"
+    label 'dysgu'
+    label 'dysgu_caller'
+    input:
+        tuple \
+            val(chrom), \
+            path(interval), \
+            path(vcflist)
+    output:
+        tuple \
+            val(chrom), \
+            path(interval), \
+            path("${params.output_prefix}_${interval.baseName}_dysgu_sv.vcf.gz")
+    script:
+        """
+        mkdir -p vcf
+        rm -rf vcf/*.vcf.gz
+        for vcf in \$(cat ${vcflist}); do
+            ln -s \${vcf} vcf/
+        done
+      
+        dysgu \
+          merge \
+          vcf/*.vcf.gz \
+          --wd temp/ \
+          --clean \
+          -p ${task.cpus} | \
+          bgzip -c > ${params.output_prefix}_${interval.baseName}_dysgu_sv.vcf.gz
+
         """
 }
 

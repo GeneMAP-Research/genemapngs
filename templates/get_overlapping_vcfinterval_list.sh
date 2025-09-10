@@ -33,6 +33,6 @@ awk \
 
 
 while read interval; do
-  echo \$interval > \$(echo \${interval} | sed 's/ /./g').bed
+  echo \$interval > \$(echo \${interval} | sed 's/ /./1; s/ /_/g').bed
 done < .interval_list
 

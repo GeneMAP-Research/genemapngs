@@ -20,6 +20,7 @@ include {
     dysguCallSvs;
     indexVcf;
     dysguMergeVcfs;
+    dysguMergeVcfsPerInterval;
     getBamChuncks;
     mantaCallSvs;
     mergeMantaCandidateSvCalls;
@@ -37,7 +38,10 @@ include {
     getGvcfList;
     getVcfFiles;
     getVcfList;
-    getContigs;
+    getChromFromVcf;
+    splitVcfPerInterval;
+    splitVcfsPerInterval;
+    validateVcfChunks;
     getGenomicsdbWorkspaces;
     combineGvcfs;
     getVcfGenomicIntervals;
@@ -162,7 +166,10 @@ workflow {
         }
         else if(params.single_caller.toUpperCase() == 'DYSGU') {
             if(params.input_ftype.toUpperCase() == 'VCF' ) {
-                vcfs = getVcfFiles().collect()
+                getVcfFiles()
+                    .map { vcfname, vcf_index -> vcf_index }
+                    .collect().view()
+                    .set { vcfs }
             }
             else {
                 dysguCallSvs(bamFileSet)
@@ -172,11 +179,20 @@ workflow {
                     .set { vcfs }
             }                
             vcflist = getVcfList(vcfs)
-            getContigs(vcflist)
+
+            getGenomicInterval(vcflist)
                 .flatten()
-                .combine(vcflist)
+                .map { interval ->
+                    tuple( "${interval.simpleName}", interval )
+                }
+                .combine(vcfs.toList())
+                .set{ chrom_vcf_interval }
+
+            splitVcfsPerInterval(chrom_vcf_interval)
                 .set { merge_input }
-            dysguMergeVcfs(merge_input).view()
+
+            //dysguMergeVcfs(merge_input)
+            dysguMergeVcfsPerInterval(merge_input).view()
         }
         else if(params.single_caller.toUpperCase() == 'MANTA') {
             bamFileSet
