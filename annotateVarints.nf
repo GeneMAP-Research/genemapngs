@@ -23,6 +23,7 @@ include {
 } from "${projectDir}/modules/annovarAnnotation.nf"
 
 include {
+    getVcf;
     getVcfIndex;
     splitMultiallelicSnvs;
     leftnormalizeSnvs;
@@ -33,22 +34,28 @@ workflow {
 
     msg = "\nERROR: You must select a Build Version! Options are hg19 and hg38\n" 
 
-    getVCF().set { vcf }
+    getVcf()
+        .set { vcf }
 
     if(params.left_norm == true) {
-        indexed_vcf = getVcfIndex(vcf)
-        multisplit = splitMultiallelicSnvs(indexed_vcf)
+        //indexed_vcf = getVcfIndex(vcf)
+        multisplit = splitMultiallelicSnvs(vcf)
         leftnorm = leftnormalizeSnvs(multisplit)
-        vcf = leftnorm.map { vcf, index -> vcf }
+        //vcf = leftnorm.map { vcf, index -> tuple(vcf, index) }
+        vcf = leftnorm
     }
 
     if(!(params.interval == "NULL")) {
         getChromFromVcf(vcf)
-            .map { chrom, vcf -> tuple("${chrom.simpleName}", vcf) }
+            .flatMap { chroms, vcf, index -> 
+                chroms.collect { chrom ->
+                    tuple("${chrom.simpleName}", vcf, index)
+                }
+            }
             .set { chrom_vcf }
 
-        indexVcf(chrom_vcf)
-           .set { chrom_vcf_index }
+        //indexVcf(chrom_vcf).view()
+        //   .set { chrom_vcf_index }
 
         getGenomicIntervalList()
            .flatten()
@@ -57,12 +64,12 @@ workflow {
         getChromFromIntervalList(interval_list)
            .map { chrom, interval -> tuple("${chrom.simpleName}", interval) }
            .groupTuple()
-           .join(chrom_vcf_index)
+           .join(chrom_vcf)
            .flatMap { chr, intervals, vcf, index -> 
                intervals.collect { intval ->
                    tuple(chr, intval, vcf, index)
                }
-           }
+           }.view()
            .set { split_input }
 
         splitVcfPerInterval(split_input)

@@ -17,10 +17,33 @@ def getT3sAdapter() {
     return channel.fromPath(projectDir + 'adapters/TruSeq3-SE.fa')
 }
 
+process verifyAlignmentID() {
+    tag "processing ${bamName}"
+    label 'verifybam'
+    label 'fastqcMem'
+    publishDir \
+        path: "${params.output_dir}/fastqc/", \
+        mode: 'copy'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+    output:
+        path "${bamName}*"
+    script:
+        """
+        VerifyBamID \
+            --BamFile ${bamFile} \
+            --Reference ${params.fastaRef} \
+            --SVDPrefix ${projectDir}/resources/ h/wgs/qplot/VerifyBamID-master/resource/exome/1000g.phase3.10k.b38.exome.vcf.gz.dat --Output AW1-134_lanes_merged_val.bqsr
+            ${bamFile}
+        """
+}
+
 process getAlignmentQualityReports() {
     tag "processing ${bamName}"
     label 'fastqc'
-    label 'fastqc_mem'
+    label 'fastqcMem'
     publishDir \
         path: "${params.output_dir}/fastqc/", \
         mode: 'copy'

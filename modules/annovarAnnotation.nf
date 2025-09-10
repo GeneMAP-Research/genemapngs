@@ -1,6 +1,7 @@
 def getVCF() {
-    return channel.fromPath( params.vcf_dir + "*.{vcf,vcf.gz}" )
+    return channel.fromFilePairs( params.vcf_dir + "*.vcf.{gz,gz.tbi}", size: 2 )
                   .ifEmpty { println "\nERROR: No VCF file found!\n" }
+                  .map { vcf, index -> tuple(vcf, index) }
 }
 
 process getChromFromVcf() {
@@ -11,19 +12,21 @@ process getChromFromVcf() {
     //    path: "${params.output_dir}/gvcfs/", \
     //    mode: 'copy'
     input:
-        path(vcf)
+        tuple \
+            path(vcf), \
+            path(index)
     output:
         tuple \
             path("*.txt"), \
-            path(vcf)
+            path(vcf), \
+            path(index)
     script:
         """
         bcftools \
-            query \
-            -f '%CHROM\n' \
+            index \
+            --stats \
             ${vcf} | \
-        sort | \
-        uniq > chroms.list
+        awk '{print \$1}' > chroms.list
 
         for chrom in \$(cat chroms.list); do echo \${chrom} > \${chrom}.txt; done
         """
@@ -98,7 +101,7 @@ process validateVcfChunks() {
     input:
         path(vcf)
     output:
-        path("*validated.vcf.gz")
+        path("*.validated.vcf.gz")
     script:
         """
         for vcf in ${vcf}; do
