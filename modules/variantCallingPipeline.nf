@@ -1029,6 +1029,80 @@ process dysguCallSvs() {
         """
 }
 
+process dellyCallSvs() {
+    tag "Writing genotypes to ${bamName}.delly.bcf"
+    label 'delly'
+    label 'dysgu_caller'
+    publishDir \
+        path: "${params.output_dir}/vcf/delly/", \
+        mode: 'copy'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path(bamIndex)
+    output:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path "${bamName}.delly.bcf"
+    script:
+        """
+        delly \
+            call \
+            -g ${params.fastaRef} \
+            -o ${bamName}.delly.bcf \
+            ${bamFile}
+        """
+}
+
+
+process dellyMergeSvs() {
+    tag "Writing genotypes to ${params.output_prefix}.delly.merge.bcf"
+    label 'delly'
+    label 'dysgu_caller'
+    publishDir \
+        path: "${params.output_dir}/vcf/delly/", \
+        mode: 'copy'
+    input:
+        path(bcfs)
+    output:
+        path "${params.output_prefix}.delly.merge.bcf"
+    script:
+        """
+        delly \
+            merge \
+            -o ${params.output_prefix}.delly.merge.bcf \
+            \$(echo *.bcf)
+        """
+}
+
+
+process dellyGenotypeSvs() {
+    tag "Writing genotypes to ${params.output_prefix}.delly.genotype.bcf"
+    label 'delly'
+    label 'dysgu_caller'
+    publishDir \
+        path: "${params.output_dir}/vcf/delly/", \
+        mode: 'copy'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile), \
+            path(bcf)
+    output:
+        path "${params.output_prefix}.delly.genotype.bcf"
+    script:
+        """
+        delly \
+            call \
+            -g ${params.fastaRef} \
+            -o ${bamName}.delly.genotype.bcf \
+            ${bamFile}
+        """
+} 
+
+
 process indexVcf() {
     tag "processing ${vcf}"
     label 'bcftools'

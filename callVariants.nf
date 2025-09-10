@@ -21,6 +21,9 @@ include {
     indexVcf;
     dysguMergeVcfs;
     dysguMergeVcfsPerInterval;
+    dellyCallSvs;
+    dellyMergeSvs;
+    dellyGenotypeSvs;
     getBamChuncks;
     mantaCallSvs;
     mergeMantaCandidateSvCalls;
@@ -193,6 +196,49 @@ workflow {
 
             //dysguMergeVcfs(merge_input)
             dysguMergeVcfsPerInterval(merge_input).view()
+        }
+        else if(params.single_caller.toUpperCase() == 'DELLY') {
+            if(params.input_ftype.toUpperCase() == 'VCF' ) {
+                println "DELLY INPUT IS BCF"
+                //getVcfFiles()
+                //    .map { vcfname, vcf_index -> vcf_index }
+                //    .collect().view()
+                //    .set { vcfs }
+            }
+            else {
+                dellyCallSvs(bamFileSet).view()
+                    .set { delly_svs }
+
+                delly_svs
+                    .map { bamName, bamFile, bcf -> bcf }
+                    .collect().view()
+                    .set { bcfs }
+            }
+
+            dellyMergeSvs(bcfs).view()
+                .set { delly_merged_svs }
+
+            bamFileSet
+                .join(delly_svs)
+                .combine(delly_merged_svs).view()
+                .set { delly_gt_input }
+
+            dellyGenotypeSvs(delly_gt_input).view()
+                .set { gt_bcfs }
+
+           // getGenomicInterval(vcflist)
+           //     .flatten()
+           //     .map { interval ->
+           //         tuple( "${interval.simpleName}", interval )
+           //     }
+           //     .combine(vcfs.toList())
+           //     .set{ chrom_vcf_interval }
+
+           // splitVcfsPerInterval(chrom_vcf_interval)
+           //     .set { merge_input }
+
+           // //dysguMergeVcfs(merge_input)
+           // dysguMergeVcfsPerInterval(merge_input).view()
         }
         else if(params.single_caller.toUpperCase() == 'MANTA') {
             bamFileSet
