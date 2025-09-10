@@ -325,7 +325,7 @@ function varcallusage() {
            --interval           : List containing genomic intervals, one chromosome name per line and/or coordinate 
                                   in bed format: <chr> <start> <stop>.
                                   NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
-                                  If not provided, intervals will be created from gVCF header.
+				  If not provided, non-overlapping intervals (5M bp) will be created from gVCF header.
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -349,6 +349,10 @@ function svarcallusage() {
                                   gatk-hap: GATK haplotypeCaller
 				  gatk-som: GATK Mutect2 (Somatic caller)
 	                           gatk-mt: GATK Mitochondria caller
+           --interval           : (optional) List containing genomic intervals, one chromosome name per line and/or coordinate 
+                                  in bed format: <chr> <start> <stop>. Relevant for dysgu ONLY.
+                                  NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+                                  If not provided, intervals of 5M bp with 1kb overlaps will be created from VCF header.
            --threads            : number of computer cpus to use  [default: 11].
            --njobs              : (optional) number of jobs to submit at once [default: 10]
            --help               : print this help message.
@@ -375,7 +379,7 @@ function jvarcallusage() {
            --interval                  : (required if '--imprt' or '--update' is specified) list containing genomic intervals.
                                          E.g. one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
                                          NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1).
-                                         If not provided, intervals will be created from gVCF header. If '--update' is specified and
+					 If not provided, non-overlapping intervals (5M bp) will be created from gVCF header. If '--update' is specified and
                                          interval list is provided, it must be the same as that used for imprt.
            --threads                   : number of computer cpus to use  [default: 11].
            --njobs                     : (optional) number of jobs to submit at once [default: 10]
@@ -688,8 +692,9 @@ params {
   output_dir = '$5'
   output_prefix = '$6'
   single_caller = '$7'
-  threads = ${8}
-  njobs = ${9}
+  interval = '${8}'
+  threads = ${9}
+  njobs = ${10}
 
 
   /*****************************************************************************************
@@ -706,12 +711,16 @@ params {
     gatk-hap: GATK haplotypeCaller
     gatk-som: GATK Mutect2 (Somatic caller)
      gatk-mt: GATK Mitochondria caller
+  ~ interval: (optional) List containing genomic intervals, one chromosome name per line and/or
+    coordinate in bed format: <chr> <start> <stop>. Relevant for dysgu ONLY.
+    NB: Ensure that your chromosome names are the same as in the reference (e.g. chr1 or 1).
+    If not provided, intervals of 5M bp with 1kb overlaps will be created from VCF header.
   ~ threads: (optional) number of computer cpus to use  [default: 11]
   ~ njobs: (optional) number of jobs to submit at once [default: 10]
   *******************************************************************************************/ 
 }
 
-$(setglobalparams ${8})
+$(setglobalparams ${11})
 """ >> ${projectname}-svarcall.config
 
 echo -e "configuration file '${projectname}-svarcall.config' created!\n"
@@ -1223,7 +1232,7 @@ else
             exit 1;
          fi
 
-         prog=`getopt -a --long "help,wgs,ftype:,alignment_dir:,vcf_dir:,output_dir:,out:,scaller:,threads:,njobs:" -n "${0##*/}" -- "$@"`;
+         prog=`getopt -a --long "help,wgs,ftype:,alignment_dir:,vcf_dir:,output_dir:,out:,scaller:,threads:,njobs:,interval:," -n "${0##*/}" -- "$@"`;
 
          #defaults
          ftype=BAM
@@ -1234,6 +1243,7 @@ else
          ped=NULL             
          scaller=gatk         
          exome=true
+	 interval=NULL
          resource=resource-selector-wes.config
          threads=11
          njobs=10             
@@ -1249,6 +1259,7 @@ else
                --output_dir) output_dir="${2}"; shift 2;;
                --out) output_prefix="$2"; shift 2;;
                --scaller) scaller="$2"; shift 2;;
+	       --interval) interval="${2}"; shift 2;;
                --threads) threads="$2"; shift 2;;
                --njobs) njobs="$2"; shift 2;;
                --help) shift; svarcallusage; 1>&2; exit 1;;
@@ -1269,6 +1280,7 @@ else
          check_optional_params \
 	     output_prefix,$output_prefix \
 	     scaller,$scaller \
+	     interval,$interval \
 	     threads,$threads \
 	     njobs,$njobs && \
          svarcallconfig \
@@ -1279,6 +1291,7 @@ else
 	     $output_dir \
 	     $output_prefix \
 	     $scaller \
+	     $interval \
 	     $threads \
 	     $njobs \
              $resource
