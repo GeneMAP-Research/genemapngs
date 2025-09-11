@@ -1079,7 +1079,7 @@ process dellyMergeSvs() {
 
 
 process dellyGenotypeSvs() {
-    tag "Writing genotypes to ${params.output_prefix}.delly.genotype.bcf"
+    tag "Writing genotypes to ${bamName}.delly.genotype.bcf"
     label 'delly'
     label 'dysgu_caller'
     publishDir \
@@ -1091,7 +1091,7 @@ process dellyGenotypeSvs() {
             path(bamFile), \
             path(bcf)
     output:
-        path "${params.output_prefix}.delly.genotype.bcf"
+        path "${bamName}.delly.genotype.bcf"
     script:
         """
         delly \
