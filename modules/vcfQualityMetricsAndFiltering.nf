@@ -1,6 +1,6 @@
 def getVcf() {
     return channel.fromFilePairs( params.vcf_dir + "*.{vcf.gz,vcf.gz.tbi}", size: 2 )
-                  .map { vcfname, vcf -> tuple(vcf.collect()) }
+                  .map { vcfname, vcf -> tuple(vcfname, vcf.first(), vcf.last()) }
 }
 
 def getThousandGenomesReference() {

@@ -174,8 +174,8 @@ process minimalAnnovarGRCh37() {
             -buildver hg19 \
             -out "${vcfFile.baseName}" \
             -remove \
-            -protocol refGene,knownGene,cytoBand,gwasCatalog,avsnp151 \
-            -operation g,g,r,r,f \
+            -protocol refGene,knownGene,cytoBand,gwasCatalog,avsnp151,gtexEqtlTissueWholeBlood,gtexEqtlTissueSpleen,gtexEqtlTissueXformedlymphocytes,gtexEqtlTissueWholeBlood,gtexEqtlTissueLiver,wgEncodeAffyRnaChipFiltTransfragsK562CellTotal,wgEncodeBroadHmmK562HMM_v2 \
+            -operation g,g,r,r,f,r,r,r,r,r,r,r \
             -nastring '.' \
             -vcfinput \
             -polish \

@@ -619,7 +619,7 @@ process createGenomicsDb() {
 }
 
 process createGenomicsDbPerInterval() {
-    tag "processing ${interval.simpleName}..."
+    tag "processing ${interval.baseName}..."
     label 'gatk'
     label 'genomisDBImport'
     publishDir \
@@ -629,8 +629,8 @@ process createGenomicsDbPerInterval() {
         path(gvcfList)
     output:
         tuple \
-            val("${interval.simpleName}"), \
-            path("${interval.simpleName}_${params.output_prefix}-workspace")
+            val("${interval.baseName}"), \
+            path("${interval.baseName}_${params.output_prefix}-workspace")
     script:
         """
         #for file in ${gvcfList}; do
@@ -648,14 +648,14 @@ process createGenomicsDbPerInterval() {
             --consolidate true \
             --arguments_file ${gvcfList} \
             -L ${interval} \
-            --genomicsdb-workspace-path ${interval.simpleName}_${params.output_prefix}-workspace
+            --genomicsdb-workspace-path ${interval.baseName}_${params.output_prefix}-workspace
         """
 }
 
 //-XX:ConcGCThreads=${task.cpus} -XX:ParallelGCThreads=${task.cpus}
 
 process updateGenomicsDbPerInterval() {
-    tag "processing ${interval.simpleName}..."
+    tag "processing ${interval.baseName}..."
     label 'gatk'
     label 'genomisDBImport'
     input:
@@ -666,8 +666,8 @@ process updateGenomicsDbPerInterval() {
         path(gvcfList)
     output:
         tuple \
-            val("${interval.simpleName}"), \
-            path("${interval.simpleName}_${params.output_prefix}-workspace")
+            val("${interval.baseName}"), \
+            path("${interval.baseName}_${params.output_prefix}-workspace")
     script:
         """
         mkdir -p temp
@@ -737,7 +737,7 @@ process genotypeGvcfs() {
 }
 
 process callVariantsFromGenomicsDB() {
-    tag "Writing genotypes to ${interval.simpleName}_${params.output_prefix}.vcf.gz"
+    tag "Writing genotypes to ${interval.baseName}_${params.output_prefix}.vcf.gz"
     label 'gatk'
     label 'gatkVariantCaller'
     //publishDir \
@@ -748,7 +748,7 @@ process callVariantsFromGenomicsDB() {
             path(interval), \
             path(workspace)
     output:
-        path "${interval.simpleName}_${params.output_prefix}.vcf.{gz,gz.tbi}"
+        path "${interval.baseName}_${params.output_prefix}.vcf.{gz,gz.tbi}"
     script:
         """
         gatk \
@@ -758,7 +758,7 @@ process callVariantsFromGenomicsDB() {
             --dbsnp ${params.dbsnp} \
             -L ${interval} \
             -V gendb://${workspace} \
-            -O "${interval.simpleName}_${params.output_prefix}.vcf.gz"
+            -O "${interval.baseName}_${params.output_prefix}.vcf.gz"
         """
 }
 
@@ -1033,9 +1033,10 @@ process dellyCallSvs() {
     tag "Writing genotypes to ${bamName}.delly.bcf"
     label 'delly'
     label 'dysgu_caller'
-    publishDir \
-        path: "${params.output_dir}/vcf/delly/", \
-        mode: 'copy'
+    //publishDir \
+    //    pattern: "${bamName}.delly.bcf", \
+    //    path: "${params.output_dir}/vcf/delly/", \
+    //    mode: 'copy'
     input:
         tuple \
             val(bamName), \
@@ -1062,6 +1063,7 @@ process dellyMergeSvs() {
     label 'delly'
     label 'dysgu_caller'
     publishDir \
+        pattern: "${bamName}.delly.merge.bcf*", \
         path: "${params.output_dir}/vcf/delly/", \
         mode: 'copy'
     input:
@@ -1073,7 +1075,7 @@ process dellyMergeSvs() {
         delly \
             merge \
             -o ${params.output_prefix}.delly.merge.bcf \
-            \$(echo *.bcf)
+            \$(echo *.delly.bcf)
         """
 }
 
@@ -1083,20 +1085,23 @@ process dellyGenotypeSvs() {
     label 'delly'
     label 'dysgu_caller'
     publishDir \
+        pattern: "${bamName}.delly.genotype.bcf*", \
         path: "${params.output_dir}/vcf/delly/", \
         mode: 'copy'
     input:
         tuple \
             val(bamName), \
             path(bamFile), \
-            path(bcf)
+            path(bamIndex), \
+            path(mergedBcf)
     output:
-        path "${bamName}.delly.genotype.bcf"
+        path "${bamName}.delly.genotype.bcf*"
     script:
         """
         delly \
             call \
             -g ${params.fastaRef} \
+            -v ${mergedBcf} \
             -o ${bamName}.delly.genotype.bcf \
             ${bamFile}
         """

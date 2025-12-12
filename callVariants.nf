@@ -97,7 +97,7 @@ workflow {
                    .map { intervalname, wrkspc -> tuple(intervalname + "_${params.output_prefix}-workspace", wrkspc) }
                    .set { workspace }
                genomicInterval
-                   .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
+                   .map { interval -> tuple(interval.baseName + "_${params.output_prefix}-workspace", interval) }
                    .join(workspace)
                    .map { workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace) }.view()
                    .set { workspace_interval }
@@ -117,9 +117,9 @@ workflow {
                 gvcfs = getGvcfFiles().toList()        
                 gvcfList = getGvcfList(gvcfs)
                 genomicInterval = getGenomicInterval(gvcfList)
-                workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
+                workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.baseName, wrkspc) }
                 genomicInterval
-                    .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
+                    .map { interval -> tuple(interval.baseName + "_${params.output_prefix}-workspace", interval) }
                     .join(workspace)
                     .map {workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace)}
                     .set { workspace_interval }
@@ -134,14 +134,14 @@ workflow {
 
                 if(!params.interval == 'NULL') {
                     genomicInterval = getGenomicInterval(gvcfList)
-                    workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
+                    workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.baseName, wrkspc) }
                     genomicInterval
-                        .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
+                        .map { interval -> tuple(interval.baseName + "_${params.output_prefix}-workspace", interval) }
                         .join(workspace)
                         .map {workspaceName, interval, workspace -> tuple(workspaceName, workspace)}
                         .set { workspace }
                 } else {
-                    workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
+                    workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.baseName, wrkspc) }
                 }
                 vcfs = callVariantsFromExistingGenomicsDB(workspace).view().collect()
                 vcfs_per_chrom_list = collectIntervalsPerChromosome(vcfs).flatten()
@@ -186,7 +186,7 @@ workflow {
             getGenomicInterval(vcflist)
                 .flatten()
                 .map { interval ->
-                    tuple( "${interval.simpleName}", interval )
+                    tuple( "${interval.baseName}", interval )
                 }
                 .combine(vcfs.toList())
                 .set{ chrom_vcf_interval }
@@ -206,30 +206,29 @@ workflow {
                 //    .set { vcfs }
             }
             else {
-                dellyCallSvs(bamFileSet).view()
+                dellyCallSvs(bamFileSet)
                     .set { delly_svs }
 
                 delly_svs
                     .map { bamName, bamFile, bcf -> bcf }
-                    .collect().view()
+                    .collect()
                     .set { bcfs }
             }
 
-            dellyMergeSvs(bcfs).view()
+            dellyMergeSvs(bcfs)
                 .set { delly_merged_svs }
 
             bamFileSet
-                .join(delly_svs)
-                .combine(delly_merged_svs).view()
+                .combine(delly_merged_svs)
                 .set { delly_gt_input }
 
-            dellyGenotypeSvs(delly_gt_input).view()
+            dellyGenotypeSvs(delly_gt_input)
                 .set { gt_bcfs }
 
            // getGenomicInterval(vcflist)
            //     .flatten()
            //     .map { interval ->
-           //         tuple( "${interval.simpleName}", interval )
+           //         tuple( "${interval.baseName}", interval )
            //     }
            //     .combine(vcfs.toList())
            //     .set{ chrom_vcf_interval }
@@ -296,9 +295,9 @@ workflow {
 
                     genomicsDB = createGenomicsDbPerInterval(genomicInterval, gvcfList)
 
-                    workspace = genomicsDB.map { wrkspc -> tuple(wrkspc.simpleName, wrkspc) }
+                    workspace = genomicsDB.map { wrkspc -> tuple(wrkspc.baseName, wrkspc) }
                     genomicInterval
-                        .map { interval -> tuple(interval.simpleName + "_${params.output_prefix}-workspace", interval) }
+                        .map { interval -> tuple(interval.baseName + "_${params.output_prefix}-workspace", interval) }
                         .join(workspace)
                         .map {workspaceName, interval, workspace -> tuple(workspaceName, interval, workspace)}
                         .set { workspace_interval }

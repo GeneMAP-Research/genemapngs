@@ -4,7 +4,7 @@ nextflow.enable.dsl = 2
 
 workflow {
 
-  println "\nGeneMAP NGS WORKFLOW: TEST\n"
+  //println "\nGeneMAP NGS WORKFLOW: TEST\n"
 
   println "pe=${params.pe}"
   println "aligner=${params.aligner}"

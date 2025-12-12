@@ -35,6 +35,7 @@ workflow {
     msg = "\nERROR: You must select a Build Version! Options are hg19 and hg38\n" 
 
     getVcf()
+        .map { vcfname, vcf, index -> vcf }
         .set { vcf }
 
     if(params.left_norm == true) {
