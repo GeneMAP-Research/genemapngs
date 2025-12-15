@@ -29,7 +29,7 @@ include {
     leftnormalizeSnvs;
 } from "${projectDir}/modules/vcfQualityMetricsAndFiltering.nf"
 
-workflow {
+workflow ANNOTATE {
     println "\nANNOVAR annotation starts here\n"
 
     msg = "\nERROR: You must select a Build Version! Options are hg19 and hg38\n" 

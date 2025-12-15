@@ -30,6 +30,7 @@ warnings.filterwarnings('ignore')
 """
 REQUIREMTNS:
     - psutil
+    - nextflowpy
 """
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -65,8 +66,9 @@ def generate_random_string(length):
 run_id = generate_random_string(length=10)
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # get script name
-script_path = sys.argv[0]
-script_name = os.path.basename(script_path)
+wrapper_script = sys.argv[0]
+script_name = os.path.basename(wrapper_script)
+script_path = os.path.dirname(wrapper_script)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # MONITOR RESOURCES
@@ -115,7 +117,7 @@ for tool in tools:
 # CHECK PYTHON PACKAGE INSTALLATION
 # List of module names you want to import
 # Assumes these modules are in the same directory or on the Python path
-module_names = ['psutil']
+module_names = ['psutil', 'nextflow']
 
 # A dictionary to hold the imported modules
 imported_modules = {}
@@ -146,7 +148,7 @@ version="0.1 (beta)"
 usage = f"""
 {descmsg}
 
-LICENSCE: GNU GPLv3+, due to use of the GNU Scientific Library
+LICENSCE: GNU ...
 VERSION: {version}
 
 Usage: {script_name} <command> [-v/--version] [-h/--help] <options>
@@ -154,14 +156,19 @@ Usage: {script_name} <command> [-v/--version] [-h/--help] <options>
 Commands:
            test: Run test to see if workfow installed correctly.
              qc: Check FASTQ or Alignment (BAM/CRAM) quality.
-           trim: Trim adapters and poor quality bases from reads.
-          align: Align/map reads to reference and post-alignment processing.
+           trim: Trim adapters and poor quality bases from reads (input is FASTQ or BAM/CRAM).
+          align: Align/map reads to reference and post-alignment processing (input is FASTQ or BAM/CRAM).
      mergealign: Megre Alignment (BAM/CRAM) files.
-        varcall: Perform variant calling (both single and joint sample) in one run.
-       svarcall: Perform only sinlge sample variant calling to generate gVCF files.
-       jvarcall: Perform only joint (multi-sample) variant calling with pre-existing gVCF files.
-      varfilter: Filter variant calls in VCF/BCF files.
+           call: Perform variant calling (both single and joint sample) in one run.
+          scall: Perform only sinlge sample variant calling to generate gVCF files.
+          jcall: Perform only joint (multi-sample) variant calling with pre-existing gVCF files.
+         filter: Filter variant calls in VCF/BCF files.
        annotate: Annotate variants with ANNOVAR
+        raw2vcf: Run entire workflow from 'align' to 'call' (i.e., 'scall' + 'jcall')
+   raw2annotate: Run entire workflow from 'align' to 'annotate'
+
+    [NOTE] For 'trim' and 'align', BAM/CRAM input is first converted to FASTQ
+
 """
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -237,17 +244,17 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     optional_arguments.add_argument(
-        "-resume","--resume",
+        "--resume",
         help="""
-        Whether to resume the nextflow execution. Either the flag without any value (--resume) to resume from last
+        Use this flag to resume the nextflow execution. Either the flag without any value (--resume) to resume from last
         exit point or add the flag with the specific RUN NAME as can be obtained using `nexflow log` to resume from
         a specific point (--resume kickass_church).
         """,
-        required=False,
         nargs='?',
-        const="True",
-        default="False",
-        type=str
+        const=False,
+        default=False,
+        required=False,
+        metavar="uuid"
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -282,18 +289,38 @@ def get_arguments(descmsg=None, prog=None):
 
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # VARFILTER and ANNOTATE SHARED ARGUMENTS
-    varfilter_annotate_common_parser = argparse.ArgumentParser(
+    # REFERENCE GENOME PARSER
+    ref_parser = argparse.ArgumentParser(
         add_help=False,
         parents=[parent_parser],
+        formatter_class=argparse.RawTextHelpFormatter
+    )
+
+    ref_parser_required = ref_parser.add_argument_group("Required")
+
+    ref_parser_required.add_argument(
+        "--build",
+        help="Reference build to use [default: %(default)s]",
+        choices=["hg19", "hg38", "t2t"],
+        default="hg19",
+        type=str,
+        required=True
+    )
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # FILTER and ANNOTATE SHARED ARGUMENTS
+    filter_annotate_common_parser = argparse.ArgumentParser(
+        add_help=False,
+        #parents=[parent_parser],
+        parents=[ref_parser],
         formatter_class=argparse.RawTextHelpFormatter,
         #formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
-    varfilter_annotate_common_required = varfilter_annotate_common_parser.add_argument_group("Required")
-    varfilter_annotate_common_optional = varfilter_annotate_common_parser.add_argument_group("Optional")
+    filter_annotate_common_required = filter_annotate_common_parser.add_argument_group("Required")
+    filter_annotate_common_optional = filter_annotate_common_parser.add_argument_group("Optional")
 
-    varfilter_annotate_common_required.add_argument(
+    filter_annotate_common_required.add_argument(
         "--vcf_dir",
         help="""
         Path containing VCF file(s).
@@ -303,7 +330,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    varfilter_annotate_common_optional.add_argument(
+    filter_annotate_common_optional.add_argument(
         "--left_norm",
         help="""
         Add this flag to left-normalized variants such as is recommended by ANNOVAR.
@@ -312,7 +339,7 @@ def get_arguments(descmsg=None, prog=None):
         action="store_true"
     )
 
-    varfilter_annotate_common_optional.add_argument(
+    filter_annotate_common_optional.add_argument(
         "--out",
         help="""
         Output prefix [default: my-ngs-vcf].
@@ -363,6 +390,7 @@ def get_arguments(descmsg=None, prog=None):
         """,
         required=False,
         type=str,
+        default="NP",
         metavar="<text>"
     )
 
@@ -402,6 +430,15 @@ def get_arguments(descmsg=None, prog=None):
 
     align_required = align_parser.add_argument_group("Required")
     align_optional = align_parser.add_argument_group("Optional")
+
+    align_required.add_argument(
+        "--build",
+        help="Reference build to use [default: %(default)s]",
+        choices=["hg19", "hg38", "t2t"],
+        default="hg19",
+        type=str,
+        required=True
+    )
 
     align_required.add_argument(
         "--aligner",
@@ -469,16 +506,16 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # VARCALL-SPECIFIC OPTIONS
-    varcall_parser = argparse.ArgumentParser(
+    # CALL-SPECIFIC OPTIONS
+    call_parser = argparse.ArgumentParser(
         add_help=False,
         parents=[parent_parser],
     )
 
-    varcall_required = varcall_parser.add_argument_group("Required")
-    varcall_optional = varcall_parser.add_argument_group("Optional")
+    call_required = call_parser.add_argument_group("Required")
+    call_optional = call_parser.add_argument_group("Optional")
 
-    varcall_required.add_argument(
+    call_required.add_argument(
         "--alignment_dir",
         help="Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).",
         required=True,
@@ -486,12 +523,12 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    varcall_optional.add_argument(
+    call_optional.add_argument(
         "--scaller",
         help="""
         Single sample variant caller; 'gatk', 'deepvariant' [default: gatk].
         'gatk' will use GATK HaplotypeCaller for single sample calling.
-        For single sample calling of structural variants, use the 'svarcall' command.
+        For single sample calling of structural variants, use the 'scall' command.
         """,
         required=False,
         default='gatk',
@@ -499,7 +536,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<text>"
     )
 
-    varcall_optional.add_argument(
+    call_optional.add_argument(
         "--jcaller",
         help="""
         Joint sample variant caller; 'gatk', 'glnexus' [default: gatk].
@@ -510,7 +547,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<text>"
     )
 
-    varcall_optional.add_argument(
+    call_optional.add_argument(
         "--batch_size",
         help="""
         Number of samples to read into memory by GATK sample reader each time [default: 50].
@@ -521,7 +558,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<integer>"
     )
 
-    varcall_optional.add_argument(
+    call_optional.add_argument(
         "--interval",
         help="""
         List containing genomic intervals, one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
@@ -534,16 +571,16 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # SVARCALL-SPECIFIC OPTIONS
-    svarcall_parser = argparse.ArgumentParser(
+    # SCALL-SPECIFIC OPTIONS
+    scall_parser = argparse.ArgumentParser(
         add_help=False,
         parents=[parent_parser],
     )
 
-    svarcall_required = svarcall_parser.add_argument_group("Required")
-    svarcall_optional = svarcall_parser.add_argument_group("Optional")
+    scall_required = scall_parser.add_argument_group("Required")
+    scall_optional = scall_parser.add_argument_group("Optional")
 
-    svarcall_required.add_argument(
+    scall_required.add_argument(
         "--alignment_dir",
         help="Path to alignment (BAM/CRAM) files and their indexes (.bai/.crai).",
         required=True,
@@ -551,7 +588,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    svarcall_required.add_argument(
+    scall_required.add_argument(
         "--vcf_dir",
         help="Path to VCF files and their indexes (.tbi) for 'dysgu merge' only!. NOTE: You ust specify '--ftype VCF'",
         required=False, # will be conditionally required if --ftype is VCF
@@ -559,7 +596,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    svarcall_optional.add_argument(
+    scall_optional.add_argument(
         "--scaller",
         help="""
         Joint sample variant caller; gatk-hap, gatk-som, gatk-mt, deepvariant, dysgu, manta [default: gatk-hap]
@@ -571,7 +608,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<text>"
     )
 
-    svarcall_optional.add_argument(
+    scall_optional.add_argument(
         "--interval",
         help="""
         List containing genomic intervals, one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
@@ -585,7 +622,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<file>"
     )
 
-    svarcall_optional.add_argument(
+    scall_optional.add_argument(
         "--out",
         help="""
         Output prefix [default: my-ngs].
@@ -597,16 +634,16 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # JVARCALL-SPECIFIC OPTIONS
-    jvarcall_parser = argparse.ArgumentParser(
+    # JCALL-SPECIFIC OPTIONS
+    jcall_parser = argparse.ArgumentParser(
         add_help=False,
         parents=[parent_parser],
     )
 
-    jvarcall_required = jvarcall_parser.add_argument_group("Required")
-    jvarcall_optional = jvarcall_parser.add_argument_group("Optional")
+    jcall_required = jcall_parser.add_argument_group("Required")
+    jcall_optional = jcall_parser.add_argument_group("Optional")
 
-    jvarcall_required.add_argument(
+    jcall_required.add_argument(
         "--genomicsdb_workspace_dir",
         help="""
         Path containiner GenomicsDB workspaces. Required if calling variants from, or imprting gVCFS to, 
@@ -617,7 +654,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    jvarcall_optional.add_argument(
+    jcall_optional.add_argument(
         "--imprt",
         help="""
         Add this flag if importing gVCF files to new genomicsdb workspaces. Cannot be used with '--update'.
@@ -626,7 +663,7 @@ def get_arguments(descmsg=None, prog=None):
         action="store_true"
     )
 
-    jvarcall_optional.add_argument(
+    jcall_optional.add_argument(
         "--update",
         help="""
         Add this flag if importing gVCF files to existing genomicsdb workspaces. Cannot be used with '--imprt'.
@@ -635,7 +672,7 @@ def get_arguments(descmsg=None, prog=None):
         action="store_true"
     )
 
-    jvarcall_optional.add_argument(
+    jcall_optional.add_argument(
         "--gvcf_dir",
         help="""
         Path containing gVCF files and their indexes ('.tbi').
@@ -645,7 +682,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<path>"
     )
 
-    jvarcall_optional.add_argument(
+    jcall_optional.add_argument(
         "--jcaller",
         help="""
         Joint sample variant caller; 'gatk', 'glnexus' [default: gatk].
@@ -656,7 +693,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<text>"
     )
 
-    jvarcall_optional.add_argument(
+    jcall_optional.add_argument(
         "--interval",
         help="""
         List containing genomic intervals, one chromosome name per line and/or coordinate in bed format: <chr> <start> <stop>.
@@ -672,16 +709,16 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # VARFILTER-SPECIFIC OPTIONS
-    varfilter_parser = argparse.ArgumentParser(
+    # FILTER-SPECIFIC OPTIONS
+    filter_parser = argparse.ArgumentParser(
         add_help=False,
-        parents=[varfilter_annotate_common_parser],
+        parents=[filter_annotate_common_parser],
     )
 
-    varfilter_required = varfilter_parser.add_argument_group("Required")
-    varfilter_optional = varfilter_parser.add_argument_group("Optional")
+    filter_required = filter_parser.add_argument_group("Required")
+    filter_optional = filter_parser.add_argument_group("Optional")
 
-    varfilter_optional.add_argument(
+    filter_optional.add_argument(
         "--minDP",
         help="""
         Minimum allele depth [default: 10].
@@ -692,7 +729,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<integer>"
     )
 
-    varfilter_optional.add_argument(
+    filter_optional.add_argument(
         "--minGQ",
         help="""
         Minimum genotype quality [default: 20].
@@ -703,7 +740,7 @@ def get_arguments(descmsg=None, prog=None):
         metavar="<integer>"
     )
 
-    varfilter_optional.add_argument(
+    filter_optional.add_argument(
         "--jcaller",
         help="""
         The tool that was used to generate joint call VCF file; 'gatk', 'glnexus' [default: gatk].
@@ -718,7 +755,7 @@ def get_arguments(descmsg=None, prog=None):
     # ANNOTATE-SPECIFIC OPTIONS
     annotate_parser = argparse.ArgumentParser(
         add_help=False,
-        parents=[varfilter_annotate_common_parser],
+        parents=[filter_annotate_common_parser],
     )
 
     annotate_required = annotate_parser.add_argument_group("Required")
@@ -834,45 +871,45 @@ def get_arguments(descmsg=None, prog=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # VARCALL SUBPARSER
+    # call SUBPARSER
     subparsers.add_parser(
-        "varcall",
+        "call",
         prog=prog,
-        usage="%(prog)s varcall [-h/--help] <options>",
-        parents=[varcall_parser],
+        usage="%(prog)s call [-h/--help] <options>",
+        parents=[call_parser],
         description="ONE-RUN SINGLE AND JOINT VARIANT CALLING",
         add_help=False
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # SVARCALL SUBPARSER
+    # Scall SUBPARSER
     subparsers.add_parser(
-        "svarcall",
+        "scall",
         prog=prog,
-        usage="%(prog)s svarcall [-h/--help] <options>",
-        parents=[svarcall_parser],
+        usage="%(prog)s scall [-h/--help] <options>",
+        parents=[scall_parser],
         description="SINGLE SAMPLE VARIANT CALLING",
         add_help=False
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # JVARCALL SUBPARSER
+    # Jcall SUBPARSER
     subparsers.add_parser(
-        "jvarcall",
+        "jcall",
         prog=prog,
-        usage="%(prog)s jvarcall [-h/--help] <options>",
-        parents=[jvarcall_parser],
+        usage="%(prog)s jcall [-h/--help] <options>",
+        parents=[jcall_parser],
         description="JOINT-SAMPLE VARIANT CALLING",
         add_help=False
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # VARFILTER SUBPARSER
+    # filter SUBPARSER
     subparsers.add_parser(
-        "varfilter",
+        "filter",
         prog=prog,
-        usage="%(prog)s varfilter [-h/--help] <options>",
-        parents=[varfilter_parser],
+        usage="%(prog)s filter [-h/--help] <options>",
+        parents=[filter_parser],
         description="VARIANT FILTERATION",
         add_help=False
     )
@@ -882,9 +919,37 @@ def get_arguments(descmsg=None, prog=None):
     subparsers.add_parser(
         "annotate",
         prog=prog,
-        usage="%(prog)s qc [-h/--help] <options>",
+        usage="%(prog)s annotate [-h/--help] <options>",
         parents=[annotate_parser],
         description="VARIANT ANNOTATION",
+        add_help=False
+    )
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # RAW TO VCF SUBPARSER
+    subparsers.add_parser(
+        "raw2vcf",
+        prog=prog,
+        usage="%(prog)s raw2vcf [-h/--help] <options>",
+        parents=[align_parser],
+        description="""
+        READS ALIGNMENT TO VARIANT CALLING:
+        This workflow will run from alignment to variant calling
+        """,
+        add_help=False
+    )
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # RAW TO ANNOTATED SUBPARSER
+    subparsers.add_parser(
+        "raw2annotate",
+        prog=prog,
+        usage="%(prog)s raw2annotate [-h/--help] <options>",
+        parents=[align_parser],
+        description="""
+        READS ALIGNMENT TO ANNOTATED VCF:    
+        This workflow will run from alignment through variant calling to generate an annotated VCF
+        """,
         add_help=False
     )
 
@@ -895,6 +960,12 @@ def get_arguments(descmsg=None, prog=None):
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # GET ONE-TIME SYSTEM SETTINGS
+"""
+We will either use the template 'system.json' file to provide global systems configurations by
+copying the file to a 'nextflow.json' file and filling in the parameter values, or by simply running 
+the 'ei-ngs.py' script on the command line and responding to the prompts to provide values to the required
+system parameter settings.
+"""
 def system_settings(
         account=None, 
         partition=None,
@@ -902,6 +973,7 @@ def system_settings(
         containsers_dir=None,
         workspace=None,
         email=None,
+        project_dir=None,
     ):
     # check if 'nextflow.config' exists and get information from it
     main_config_file = pathlib.Path('nextflow.json')
@@ -959,7 +1031,7 @@ def system_settings(
         with open(main_config_file, 'w') as main_config_json:
             json.dump(main_config_dic, main_config_json, indent=4)
 
-    # GENERATE NEXTFLOW CONFIG
+    # GENERATE NEXTFLOW CONFIG FROM MAIN CONFIG DICTIONARY
     nf_config_name = 'nextflow.config'
     nf_config = open(nf_config_name, 'w')
     nf_config.write('params { // project-specific one-time system configuration //' + "\n")
@@ -971,36 +1043,255 @@ def system_settings(
     nf_config.write(f"  email = '{email}'" + "\n")
     nf_config.write("}" + "\n")
 
-def get_project_config(dtype=None):
+def get_project_config(
+        dtype=None, 
+        cmd=None
+    ):
     # GENERATE MAIN PROJECT CONFIG
     main_config = json.load(open('nextflow.json', 'r'))
-    project_config_name = main_config['project_name'] + '.config'
+    workspace = main_config['workspace'] + f'/{main_config["project_name"]}'
+    project_name = main_config['project_name']
+    project_config_name = project_name + '.config'
     project_config = open(project_config_name, 'w')
-    project_config.write("includeConfig \"${projectDir}/nextflow.config\"\n")
-    project_config.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")            
+    project_config.write("includeConfig \"${launchDir}/nextflow.config\"\n")
+    project_config.write("params {" + "\n")
+    project_config.write(f"  wkflow = '{cmd}'" + "\n")
+    project_config.write("}" + "\n")
+    project_config.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")
     if dtype.upper() == "WGS":
-        rselector = 'includeConfig "${projectDir}/configs/resourceselector/resource-selector-wgs.config"'
+        rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wgs.config\""
         project_config.write(f"{rselector}\n")
     else:
-        rselector = 'includeConfig "${projectDir}/configs/resourceselector/resource-selector-wes.config"'
-        project_config.write(f"{rselector}\n")    
+        rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wes.config\""
+        project_config.write(f"{rselector}\n")
 
+    return workspace, project_name, project_config_name
 
-
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # MAKE NEXTFLOW CONFIGURATION FILES
 # MAKE TEST CONFIG FILE
 def get_test_config():
     #check if exist and remove
     test_config_file = pathlib.Path('test.config')
-    if test_config_file.is_file:
-        test_config_file.unlink()
+    if os.path.exists(test_config_file):
+        os.remove(test_config_file)
     
     #create new
     with open(test_config_file, 'a') as f:
-        f.write("includeConfig \"${projectDir}/nextflow.config\"\n")
+        f.write("includeConfig \"${launchDir}/nextflow.config\"\n")
+        f.write("params { wkflow = 'test' }\n")
         f.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")
         f.write("includeConfig \"${projectDir}/configs/test.config\"\n")
 
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# DEFINE WORKFLOW FUNCTIONS
+#
+# TEST WORKFLOW
+def test_workflow(project_dir=None):
+    get_test_config()
+
+    # Use subprocess to run test workflow 
+    nf_test = subprocess.run(
+        [
+            str("nextflow"),
+            str("-c"),
+            str("test.config"),
+            str("run"),
+            #str(f"{project_dir}/workflows/test.nf"),
+            str(f"{project_dir}/main.nf"),
+            str("-params-file"),
+            str("nextflow.json"),
+            str("-profile"), 
+            str("singularity")
+
+        ], 
+        capture_output=True,
+        text = True
+    )
+    if nf_test.stdout:
+        print("\n!!!WORKFLOW TEST SUCCESSFUL!!!\n")
+        #print(nf_test.stdout)
+    else:
+        logger.error("Workflow test terminated with an error.")
+        print(nf_test.stderr)
+
+
+# QC WORKFLOW
+def qc_workflow(
+        workspace=None, 
+        project_name=None, 
+        project_config=None,
+        project_dir=None
+    ):
+    qc_params = {
+        "input_ftype": f"{args.ftype}",
+        "input_dir": f"{args.input_dir}",
+        "output_dir": f"{args.output_dir}",
+        "threads": f"{args.threads}",
+        "njobs": f"{args.njobs}"
+    }
+
+    nf_qc = nextflow.run(
+        f"{project_dir}/main.nf",
+        params=qc_params,
+        run_path=".",
+        output_path=f"{workspace}",
+        profiles=[
+            f"{args.profile}"
+        ],
+        configs=[
+            f"{project_config}"
+        ],
+        resume=f"{args.resume}",
+        report=f"{project_name}-qc-{run_id}-report.html",
+        timeline=f"{project_name}-qc-{run_id}-timeline.html",
+        dag=f"{project_name}-qc-{run_id}-dag.html",
+        trace=f"{project_name}-qc-{run_id}-trace.txt"
+    )
+    print(f"NEXTFLOW SESSION STATUS: {nf_qc.status}")
+    #print(f"NEXTFLOW SESSION UNIQUE ID (UUID): {nf_qc.uuid}")
+    #print(f"NEXTFLOW SESSION START: {nf_qc.start}")
+    #print(f"NEXTFLOW SESSION FINISHED: {nf_qc.finished}")
+    #print(f"NEXTFLOW SESSION COMMAND: {nf_qc.command}")
+    #print(f"NEXTFLOW SESSION EXECUTION PATH: {nf_qc.path}")
+    print(nf_qc.stderr)
+    print(nf_qc.stdout)
+
+
+# TRIM WORKFLOW
+def trim_workflow(
+        workspace=None, 
+        project_name=None, 
+        project_config=None,
+        project_dir=None
+    ):
+    trim_params = {
+        "input_ftype": f"{args.ftype}",
+        "input_dir": f"{args.input_dir}",
+        "output_dir": f"{args.output_dir}",
+        "threads": f"{args.threads}",
+        "njobs": f"{args.njobs}",
+        "trimmer": f"{args.trimmer}",
+        "adapter": f"{args.adapter}",
+        "min_length": f"{args.min_length}",
+        "headcrop": f"{args.headcrop}",
+        "crop": f"{args.crop}",
+    }
+
+    # delete adapter from trim parameters if trimgalore is selected
+    if args.trimmer == 'trimgalore':
+        del trim_params['adapter']
+
+    nf_trim = nextflow.run(
+        f"{project_dir}/main.nf",
+        params=trim_params,
+        run_path=".",
+        output_path=f"{workspace}",
+        profiles=[
+            f"{args.profile}"
+        ],
+        configs=[
+            f"{project_config}"
+        ],
+        resume=f"{args.resume}",
+        report=f"{project_name}-trim-{run_id}-report.html",
+        timeline=f"{project_name}-trim-{run_id}-timeline.html",
+        dag=f"{project_name}-trim-{run_id}-dag.html",
+        trace=f"{project_name}-trim-{run_id}-trace.txt"
+    )
+    print(f"NEXTFLOW SESSION STATUS: {nf_trim.status}")
+    print(nf_trim.stderr)
+    print(nf_trim.stdout)
+
+
+# ALIGN WORKFLOW
+def align_workflow(
+        workspace=None, 
+        project_name=None, 
+        project_config=None,
+        project_dir=None
+    ):
+
+    if args.se:
+        pe = 'false'
+    else:
+        pe = 'true'
+
+    align_params = {
+        "input_ftype": f"{args.ftype}",
+        "input_dir": f"{args.input_dir}",
+        "output_dir": f"{args.output_dir}",
+        "threads": f"{args.threads}",
+        "njobs": f"{args.njobs}",
+        "aligner": f"{args.aligner}",
+        "pe": f"{pe}",
+        "dup_marker": f"{args.dup_marker}",
+        "remove_dup": f"{args.remove_dup}",
+        "spark": "true",
+    }
+
+    if not args.spark:
+        del align_params['spark']
+
+    nf_align = nextflow.run(
+        f"{project_dir}/main.nf",
+        params=align_params,
+        run_path=".",
+        output_path=f"{workspace}",
+        profiles=[
+            f"{args.profile}"
+        ],
+        configs=[
+            f"{project_config}"
+        ],
+        resume=f"{args.resume}",
+        report=f"{project_name}-align-{run_id}-report.html",
+        timeline=f"{project_name}-align-{run_id}-timeline.html",
+        dag=f"{project_name}-align-{run_id}-dag.html",
+        trace=f"{project_name}-align-{run_id}-trace.txt"
+    )
+    print(f"NEXTFLOW SESSION STATUS: {nf_align.status}")
+    print(nf_align.stderr)
+    print(nf_align.stdout)
+
+
+# MERGEALIGN WORKFLOW
+def mergealign_workflow(
+        workspace=None, 
+        project_name=None, 
+        project_config=None,
+        project_dir=None
+    ):
+
+    mergealign_params = {
+        "input_dir": f"{args.input_dir}",
+        "output_dir": f"{args.output_dir}",
+        "threads": f"{args.threads}",
+        "njobs": f"{args.njobs}",
+        "sort_order": f"{args.sort_order}"
+    }
+
+    nf_mergealign = nextflow.run(
+        f"{project_dir}/main.nf",
+        params=mergealign_params,
+        run_path=".",
+        output_path=f"{workspace}",
+        profiles=[
+            f"{args.profile}"
+        ],
+        configs=[
+            f"{project_config}"
+        ],
+        resume=f"{args.resume}",
+        report=f"{project_name}-mergealign-{run_id}-report.html",
+        timeline=f"{project_name}-mergealign-{run_id}-timeline.html",
+        dag=f"{project_name}-mergealign-{run_id}-dag.html",
+        trace=f"{project_name}-mergealign-{run_id}-trace.txt"
+    )
+    print(f"NEXTFLOW SESSION STATUS: {nf_mergealign.status}")
+    print(nf_mergealign.stderr)
+    print(nf_mergealign.stdout)
 
 if __name__ == "__main__":
     #monitor_resources()
@@ -1015,114 +1306,42 @@ if __name__ == "__main__":
         print(usage)
     elif args.command == 'test':
         print("Testing if ei-ngs nextflow workflow installed successfully...")
-        get_test_config()
-        nf_test = subprocess.run(
-            [
-                str("nextflow"),
-                str("-c"),
-                str("test.config"),
-                str("run"),
-                str("test.nf"),
-                str("-params-file"),
-                str("nextflow.json"),
-                str("-profile"), 
-                str("singularity")
-
-            ], 
-            capture_output=True,
-            text = True
+        test_workflow(
+            project_dir=script_path
         )
-        if nf_test.stdout:
-            print("\n!!!WORKFLOW TEST SUCCESSFUL!!!\n")
-            print(nf_test.stdout)
-        else:
-            logger.error("Workflow test terminated with an error.")
-            print(nf_test.stderr)
     else:
         if args.wgs:
             dtype = "WGS"
         else:
             dtype = "WES"
 
-        get_project_config(dtype=dtype)
+        # GET VALUES FROM 'get_project_config' FUNCTION
+        workspace, project_name, project_config = get_project_config(dtype=dtype, cmd=args.command)
+    
+        os.makedirs(
+            workspace,
+            exist_ok=True
+        )
 
-        # get workspace from 'nextflow.json' to use as workdir
-        main_config = json.load(open('nextflow.json', 'r'))
-        workspace = main_config['workspace'] + f'/{main_config["project_name"]}'
-        # get project name to build project config from
-        project_name = main_config['project_name']
-        project_config = project_name + '.config'
+        print(f"PROJECT NAME: {project_name}")
+        print(f"JOB ID: {run_id}")
 
         if args.command == 'qc':
             print("READS QUALITY ASSESSMENT")
-            qc_params = {
-                "input_ftype": f"{args.ftype}",
-                "input_dir": f"{args.input_dir}",
-                "output_dir": f"{args.output_dir}",
-                "threads": f"{args.threads}",
-                "njobs": f"{args.njobs}"
-            }
-            """
-            qc_job = subprocess.run(
-                [
-                    str("nextflow"),
-                    str("-c"),
-                    str(f"{project_config}"),
-                    str("run"),
-                    str("getQualityReports.nf"),
-                    str("-profile"),
-                    str(f"{args.profile}"),
-                    str("-w"),
-                    str(f"{workspace}"),
-                    str("-with-report"),
-                    str("--input_ftype"),
-                    str(f"{args.ftype}"),
-                    str("--input_dir"),
-                    str(f"{args.input_dir}"),
-                    str("--output_dir"),
-                    str(f"{args.output_dir}"),
-                    str("--threads"),
-                    str(f"{args.threads}"),
-                    str("--njobs"),
-                    str(f"{args.njobs}")
-                ],
-                capture_output = True,
-                text = True,
-                check = True
-                )
-            if qc_job.stdout:
-                print("\n!!!QC WORKFLOW SUCCESSFUL!!!\n")
-                print(qc_job.stdout)
-            else:
-                logger.error("QC workflow terminated with an error.")
-                print(qc_job.stderr)
-            """
-            os.makedirs(
-                workspace,
-                exist_ok=True
+            qc_workflow(
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path
             )
-            execution = nextflow.run(
-                "getQualityReports.nf",
-                params=qc_params,
-                run_path=".",
-                output_path=f"{workspace}",
-                profiles=[
-                    f"{args.profile}"
-                ],
-                configs=[
-                    f"{project_config}"
-                ],
-                resume=f"{args.resume}",
-                report=f"{project_name}-{run_id}-report.html",
-                timeline=f"{project_name}-{run_id}-timeline.html",
-                dag=f"{project_name}-{run_id}-dag.html",
-                trace=f"{project_name}-{run_id}-trace.txt"
+            
+        if args.command == 'trim':
+            print("READS TRIMMING")
+            trim_workflow(
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path
             )
-            print(f"SESSION STATUS: {execution.status}")
-            print(f"SESSION UNIQUE ID (UUID): {execution.uuid}")
-            print(f"SESSION START: {execution.start}")
-            print(f"SESSION FINISHED: {execution.finished}")
-            print(f"SESSION COMMAND: {execution.command}")
-            print(f"SESSION EXECUTION PATH: {execution.path}")
-            print(execution.stderr)
-            print(execution.stdout)
+
+

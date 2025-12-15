@@ -8,12 +8,14 @@ include {
     convertBamToCram;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow BAM2CRAM {
     println "\nBAM2CRAM\n"
     bam = getInputBams()
     cram = convertBamToCram(bam)
 }
 
+/*
 workflow.onComplete { 
     println "\nDone! Check results in ${params.outputDir}\n" 
 }
+*/

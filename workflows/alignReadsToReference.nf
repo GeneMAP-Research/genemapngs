@@ -34,7 +34,7 @@ include {
     recalibrateBaseQualityScoresSpark;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow ALIGN {
     println "\nAlignment workflow begins here\n"
     if( params.input_ftype.toUpperCase() == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
@@ -136,6 +136,8 @@ workflow {
 
 }
 
+/*
 workflow.onComplete { 
     println "\nDone! Check results in ${params.output_dir}\n" 
 }
+*/

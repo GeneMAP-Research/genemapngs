@@ -26,7 +26,7 @@ include {
     //plotVcfStats;
 } from "${projectDir}/modules/vcfQualityMetricsAndFiltering.nf"
 
-workflow {
+workflow FILTER {
     println "\nWorkflow starts here\n"
 
     vcf_index = getVcf().view()
@@ -83,4 +83,4 @@ workflow {
     }
 }
 
-workflow.onComplete { println "\nDone filtering VCF file!\n" }
+//workflow.onComplete { println "\nDone filtering VCF file!\n" }

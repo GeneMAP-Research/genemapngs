@@ -2,7 +2,7 @@
 
 nextflow.enable.dsl = 2
 
-workflow {
+workflow TEST {
 
   //println "\nGeneMAP NGS WORKFLOW: TEST\n"
 
@@ -23,17 +23,6 @@ workflow {
 
   run_plink()
 	
-}
-
-
-
-workflow.onComplete { 
-  println "Workflow completed at: ${workflow.complete}"
-  println "     Execution status: ${ workflow.success ? 'OK' : 'failed'}"
-}
-
-workflow.onError{
-  println "workflow execution stopped with the following message: ${workflow.errorMessage}"
 }
 
 process run_plink() {

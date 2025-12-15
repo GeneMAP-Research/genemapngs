@@ -13,7 +13,7 @@ include {
     getMultiQcFastqReports;
 } from "${projectDir}/modules/getReadsQualityReports.nf"
 
-workflow {
+workflow QC {
     println "\nFASTQ/BAM/CRAM Quality Reports\n"
     if( params.input_ftype.toUpperCase() == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"

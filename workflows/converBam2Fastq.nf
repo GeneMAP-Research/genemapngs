@@ -8,11 +8,11 @@ include {
     convertAlignmentToFastq;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow BAM2FASTQ {
     println "\nBAM2FASTQ workflow begins here\n"
     bam = getInputAlignments()
     bamSortedByName = sortAlignmentByName(bam)
     fastq = convertAlignmentToFastq(bamSortedByName)
 }
 
-workflow.onComplete { println "\nDone! Check results in ${params.output_dir}\n" }
+//workflow.onComplete { println "\nDone! Check results in ${params.output_dir}\n" }

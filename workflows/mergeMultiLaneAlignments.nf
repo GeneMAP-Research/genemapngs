@@ -18,7 +18,7 @@ include {
     updateMergedAlignmentHeader;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow MERGEALIGN {
     println "\nMERGE ALIGNMENT FILES\n"
     getAlignmentDir()
         .set { alignment }
@@ -29,6 +29,8 @@ workflow {
 //    indexAndMoveAlignment(merged_alignment_updated)
 }
 
+/*
 workflow.onComplete { 
     println "\nDone! Check results in ${params.output_dir}\n" 
 }
+*/

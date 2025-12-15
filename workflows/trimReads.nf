@@ -17,7 +17,7 @@ include {
     trimmomatic;
 } from "${projectDir}/modules/getReadsQualityReports.nf"
 
-workflow {
+workflow TRIM {
     println "\nFastq trimming begins here\n"
     fastq = getInputFastqs()
 

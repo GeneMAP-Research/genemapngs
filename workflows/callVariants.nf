@@ -58,7 +58,7 @@ include {
     indexAlignment;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow CALL {
     println "\nVariant calling begins here\n"
 
     if(params.mode == 'jvarcall') {
@@ -314,4 +314,4 @@ workflow {
 
 }
 
-workflow.onComplete { println "\nDone! Check results in ${params.output_dir}\n" }
+//workflow.onComplete { println "\nDone! Check results in ${params.output_dir}\n" }
