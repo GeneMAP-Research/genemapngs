@@ -68,9 +68,10 @@ process getFastqQualityReports() {
     tag "processing ${fastqName}"
     label 'fastqc'
     label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/fastqc/", \
-        mode: 'copy'
+    //publishDir \
+    //    path: "${params.output_dir}/fastqc/", \
+    //    mode: 'copy'
+    storeDir "${params.output_dir}/fastqc/"
     input:
         tuple \
             val(fastqName), \
@@ -108,8 +109,10 @@ process trimgalore() {
     tag "processing ${fastqName}"
     label 'trimgalore'
     label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+    //publishDir \
+    //    path: "${params.output_dir}/trimmedreads/",
+    //    mode: 'move'
+    storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
@@ -141,8 +144,9 @@ process cutadapt() {
     tag "processing ${fastqName}"
     label 'trimgalore'
     label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+    //publishDir \
+    //    path: "${params.output_dir}/trimmedreads/"
+    storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
@@ -173,8 +177,9 @@ process trimmomatic() {
     tag "processing ${fastqName}"
     label 'trimatic'
     label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+    //publishDir \
+    //    path: "${params.output_dir}/trimmedreads/"
+    storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
