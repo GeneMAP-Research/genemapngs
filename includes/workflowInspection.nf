@@ -36,3 +36,26 @@ def checkWkflow() {
       error: println "\nPlease specify a workflow to run using '--wkflow <option>' \n${wkflowOptions}"
    }
 }
+
+def checkParams() {
+   if(params.wkflow.toUpperCase() == "QC") {
+      if(params.input_dir == "NULL") {
+         usage = """
+         Usage: main.nf --wkflow qc <options>
+            options:
+            --------
+            --wgs                : Specify this flag if your data is whole-genome sequence (it runs whole exome - wes - by default)
+                                   This is important for resource allocation.
+            --ftype              : Input file type; FASTQ, BAM, CRAM [default: FASTQ].
+            --input_dir          : (required) Path to FASTQ/BAM/CRAM files.
+            --output_dir         : (optional) Results will be saved to parent of input directory ['input_dir/../'].
+            --threads            : number of computer cpus to use [default: 4].
+            --njobs              : (optional) number of jobs to submit at once [default: 4]
+            --help               : print this help message.
+         """
+         error: println "\nPlease provide all required arguments!\n${usage}" 
+      } else if(params.wgs) {
+         return params.exome = false
+      }
+   }
+}
