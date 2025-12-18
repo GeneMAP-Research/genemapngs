@@ -35,7 +35,7 @@ nextflow.enable.dsl = 2
 
 **********************************************************************************************************/
 
-include { jobCompletionMessage } from "${projectDir}/includes/workflowInspection.nf"
+include { jobCompletionMessage; checkWkflow } from "${projectDir}/includes/workflowInspection.nf"
 
 include { TEST } from "${projectDir}/workflows/test.nf"
 include { QC } from "${projectDir}/workflows/getQualityReports.nf"
@@ -50,6 +50,9 @@ include { ANNOTATE } from "${projectDir}/workflows/annotateVarints.nf"
 //include { BAM2CRAM } from "${projectDir}/workflows/converBam2Cram.nf"
 
 workflow {
+
+    checkWkflow()
+    
     if(params.wkflow.toUpperCase() == "TEST") {
         TEST()
     }

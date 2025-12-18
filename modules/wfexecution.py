@@ -1,6 +1,7 @@
 import subprocess
 import wfstaging
 import nextflow
+from pandas.api.types import is_string_dtype
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # DEFINE WORKFLOW FUNCTIONS
@@ -61,6 +62,7 @@ def qc_workflow(
         params=qc_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -103,24 +105,59 @@ def trim_workflow(
     # delete adapter from trim parameters if trimgalore is selected
     if args.trimmer == 'trimgalore':
         del trim_params['adapter']
+        # hard code max threads for trimgalore to 8,
+        # maximum recommended by Babraham Institute
+        if args.threads > 8:
+            trim_params['threads'] = 8
 
-    nf_trim = nextflow.run(
-        f"{project_dir}/main.nf",
-        params=trim_params,
-        run_path=".",
-        output_path=f"{workspace}",
-        profiles=[
-            f"{args.profile}"
-        ],
-        configs=[
-            f"{project_config}"
-        ],
-        resume=f"{args.resume}",
-        report=f"{project_name}-trim-{run_id}-report.html",
-        timeline=f"{project_name}-trim-{run_id}-timeline.html",
-        dag=f"{project_name}-trim-{run_id}-dag.html",
-        trace=f"{project_name}-trim-{run_id}-trace.txt"
-    )
+    if args.headcrop == 0:
+        trim_params['headcrop'] = "NULL"
+    if args.crop == 0:
+        trim_params['crop'] = "NULL"
+
+    if args.resume == 'false':
+        nf_trim = nextflow.run(
+            f"{project_dir}/main.nf",
+            params=trim_params,
+            run_path=".",
+            output_path=f"{workspace}",
+            log_path=".",
+            profiles=[
+                f"{args.profile}"
+            ],
+            configs=[
+                f"{project_config}"
+            ],
+            report=f"{project_name}-trim-{run_id}-report.html",
+            timeline=f"{project_name}-trim-{run_id}-timeline.html",
+            dag=f"{project_name}-trim-{run_id}-dag.html",
+            trace=f"{project_name}-trim-{run_id}-trace.txt"
+        )
+    else:
+        if args.resume == 'true':
+            resume_val = True
+        else:
+            resume_val = f"{args.resume}"
+
+        nf_trim = nextflow.run(
+            f"{project_dir}/main.nf",
+            params=trim_params,
+            run_path=".",
+            output_path=f"{workspace}",
+            log_path=".",
+            profiles=[
+                f"{args.profile}"
+            ],
+            configs=[
+                f"{project_config}"
+            ],
+            resume=resume_val,
+            report=f"{project_name}-trim-{run_id}-report.html",
+            timeline=f"{project_name}-trim-{run_id}-timeline.html",
+            dag=f"{project_name}-trim-{run_id}-dag.html",
+            trace=f"{project_name}-trim-{run_id}-trace.txt"
+        )
+
     print(f"NEXTFLOW SESSION STATUS: {nf_trim.status}")
     print(nf_trim.stderr)
     print(nf_trim.stdout)

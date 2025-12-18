@@ -183,9 +183,11 @@ def get_arguments(descmsg=None, prog=None, version=None):
         #    "local", "singularity", "docker", "apptainer", 
         #    "singularity,slurm"
         #],
+        nargs="?",
         help="Select a profile to execute the commands with [defaul: singularity]",
         required=False,
-        default="singularity",
+        const="singularity",
+        default="local",
         type=str,
         metavar="<text>"
     )
@@ -216,10 +218,11 @@ def get_arguments(descmsg=None, prog=None, version=None):
         a specific point (--resume kickass_church).
         """,
         nargs='?',
-        const=False,
-        default=False,
+        const="true",
+        default="false",
         required=False,
-        metavar="uuid"
+        metavar="uuid",
+        type=str
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -333,6 +336,7 @@ def get_arguments(descmsg=None, prog=None, version=None):
         options: trimmomatic, trimgalore [default: trimgalore]
         """,
         required=False,
+        default="trimgalore",
         metavar="<text>"
     )
 
@@ -370,18 +374,18 @@ def get_arguments(descmsg=None, prog=None, version=None):
 
     trim_optional.add_argument(
         "--headcrop",
-        help="Number of bases to remove from the start of reads [default: 5]",
+        help="Number of bases to remove from the start of reads [default: 0]",
         required=False,
-        default=5,
+        default=0,
         type=int,
         metavar="<integer>"
     )
 
     trim_optional.add_argument(
         "--crop",
-        help="Number of bases to remove from the end of reads [default: 5]",
+        help="Number of bases to remove from the end of reads [default: 0]",
         required=False,
-        default=5,
+        default=0,
         type=int,
         metavar="<integer>"
     )

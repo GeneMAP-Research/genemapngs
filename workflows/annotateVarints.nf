@@ -20,7 +20,7 @@ include {
     annovarGRCh38;
     minimalAnnovarGRCh37;
     minimalAnnovarGRCh38;
-} from "${projectDir}/modules/annovarAnnotation.nf"
+} from "${projectDir}/modules/annotation.nf"
 
 include {
     getVcf;
