@@ -2,6 +2,8 @@
 
 nextflow.enable.dsl = 2
 
+includeConfig "${projectDir}/configs/test.config"
+
 workflow TEST {
 
   //println "\nGeneMAP NGS WORKFLOW: TEST\n"
@@ -13,7 +15,7 @@ workflow TEST {
   println "output_dir=${params.output_dir}"
   println "output_prefix=${params.output_prefix}"
   println "single_caller=${params.single_caller}"
-  println "exome=${params.exome}"
+  println "wgs=${params.wgs}"
   println "joint_caller=${params.joint_caller}"
   println "gvcf_dir=${params.gvcf_dir}"
   println "spark=${params.spark}"
