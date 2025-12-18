@@ -1022,6 +1022,7 @@ def get_project_config(
     project_name = main_config['project_name']
     project_config_name = project_name + '.config'
     project_config = open(project_config_name, 'w')
+    project_config.write("includeConfig \"${projectDir}/configs/defaults.config\"\n")
     project_config.write("includeConfig \"${launchDir}/nextflow.config\"\n")
     project_config.write("params {" + "\n")
     project_config.write(f"  wkflow = '{cmd}'" + "\n")
@@ -1047,6 +1048,7 @@ def get_test_config():
     
     #create new
     with open(test_config_file, 'a') as f:
+        f.write("includeConfig \"${projectDir}/configs/defaults.config\"\n")
         f.write("includeConfig \"${launchDir}/nextflow.config\"\n")
         f.write("params { wkflow = 'test' }\n")
         f.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")
