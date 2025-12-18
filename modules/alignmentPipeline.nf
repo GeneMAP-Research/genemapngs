@@ -105,7 +105,7 @@ process alignReadsBWA() {
     label 'ngstools'
     label 'readAligner'
     cache 'lenient'
-    if(params.buildVersion == 't2t') {
+    if(params.build == 't2t') {
         storeDir "${params.output_dir}/cram/"
     } else {
         publishDir \
@@ -526,9 +526,9 @@ process markDuplicates() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
-    //storeDir { if(params.buildVersion == 't2t') { "${params.output_dir}/cram/" } else { "${params.output_dir}/cram/dupsmarked/" } }
+    //storeDir { if(params.build == 't2t') { "${params.output_dir}/cram/" } else { "${params.output_dir}/cram/dupsmarked/" } }
     publishDir { 
-        if(params.buildVersion == 't2t') { 
+        if(params.build == 't2t') { 
             path: "${params.output_dir}/cram/"
             mode: 'copy'
         } else { 

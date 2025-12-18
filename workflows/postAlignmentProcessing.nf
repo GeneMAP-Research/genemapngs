@@ -61,7 +61,7 @@ workflow {
 
 
 
-    if(!(params.buildVersion == 't2t')) {
+    if(!(params.build == 't2t')) {
         recalTable = recalibrateBaseQualityScores(alignment)
         alignment.combine(recalTable, by: 0).set { applyBQSR_input }
         recalibrated = applyBaseQualityRecalibrator(applyBQSR_input)

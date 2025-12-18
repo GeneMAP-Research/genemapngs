@@ -898,7 +898,7 @@ process deepVariantCaller() {
     output:
         path "${bamName}.g.vcf.{gz,gz.tbi}"
     script:
-    if(params.exome == true)
+    if(params.wgs == false)
         """
         run_deepvariant \
             --model_type=WES \
@@ -1239,7 +1239,7 @@ process mantaCallSvs() {
         bamlist=${bamlist}
         cat ${bamlist} | \
             awk '{print "--bam",\$1,"\\\\"}' | \
-            sed "1 i --referenceFasta ${params.fastaRef} \$(if [[ ${params.exome} == true ]]; then echo --exome; fi)" | \
+            sed "1 i --referenceFasta ${params.fastaRef} \$(if [[ ${params.wgs} == false ]]; then echo --exome; fi)" | \
             sed 's/--exome/\\n--exome \\\\/g' | \
             sort -g | \
             sed '1 i configManta.py \\\\' \

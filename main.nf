@@ -61,8 +61,9 @@ workflow {
         TEST()
     }
 
+    checkParams()
+
     if(params.wkflow.toUpperCase() == "QC") {
-        checkParams()
         QC()
     }
 

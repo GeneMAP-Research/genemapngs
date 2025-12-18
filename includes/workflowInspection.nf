@@ -55,7 +55,7 @@ def checkParams() {
          """
          error: println "\nPlease provide all required arguments!\n${usage}" 
       } else if(params.wgs) {
-         return params.exome = false
+         return params.wgs = true
       }
    }
 }

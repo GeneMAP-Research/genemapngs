@@ -85,9 +85,9 @@ process vqsrSnp() {
            --resource:1000G,known=false,training=true,truth=false,prior=10.0 ${params.snpRef} \
            --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
            --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
-           \$([[ ${params.buildVersion} == "hg38" ]] && echo --resource:gmp,known=false,training=true,truth=false,prior=12.0 ${params.gmpSnpRef}) \
+           \$([[ ${params.build} == "hg38" ]] && echo --resource:gmp,known=false,training=true,truth=false,prior=12.0 ${params.gmpSnpRef}) \
            -an QD \
-           \$([ ${params.exome} == false ] && echo "-an DP") \
+           \$([ ${params.wgs} == true ] && echo "-an DP") \
            -an MQ \
            -an MQRankSum \
            -an ReadPosRankSum \
@@ -130,9 +130,9 @@ process vqsrIndel() {
            --resource:1000G,known=false,training=true,truth=false,prior=12.0 ${params.indelsRef} \
            --resource:omni,known=false,training=true,truth=false,prior=12.0 ${params.omniRef} \
            --resource:dbsnp,known=true,training=false,truth=false,prior=2.0 ${params.dbsnp} \
-           \$([[ ${params.buildVersion} == "hg38" ]] && echo --resource:gmp,known=false,training=true,truth=false,prior=12.0 ${params.gmpIndelRef}) \
+           \$([[ ${params.build} == "hg38" ]] && echo --resource:gmp,known=false,training=true,truth=false,prior=12.0 ${params.gmpIndelRef}) \
            -an QD \
-           \$([ ${params.exome} == false ] && echo "-an DP") \
+           \$([ ${params.wgs} == true ] && echo "-an DP") \
            -an MQRankSum \
            -an ReadPosRankSum \
            -an FS \

@@ -84,19 +84,19 @@ workflow ANNOTATE {
     }
 
     if (params.minimal == true) {
-       if (params.buildVersion == "hg19") {
+       if (params.build == "hg19") {
            annotated = minimalAnnovarGRCh37(vcf).collect()
        }
-       else if (params.buildVersion == "hg38") {
+       else if (params.build == "hg38") {
            annotated = minimalAnnovarGRCh38(vcf).collect()
        }
        else { error: println msg }
     }
     else {
-       if (params.buildVersion == "hg19") {
+       if (params.build == "hg19") {
            annotated = annovarGRCh37(vcf).collect()
        }
-       else if (params.buildVersion == "hg38") {
+       else if (params.build == "hg38") {
            annotated = annovarGRCh38(vcf).collect()
        }
        else { error: println msg }
