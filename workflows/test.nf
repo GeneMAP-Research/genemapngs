@@ -2,8 +2,6 @@
 
 nextflow.enable.dsl = 2
 
-includeConfig "${projectDir}/configs/test.config"
-
 workflow TEST {
 
   //println "\nGeneMAP NGS WORKFLOW: TEST\n"
