@@ -90,7 +90,14 @@ if __name__ == "__main__":
     from wfexecution import ( 
         test_workflow, 
         qc_workflow,
-        trim_workflow
+        trim_workflow,
+        align_workflow,
+        mergealign_workflow,
+        call_workflow,
+        scall_workflow,
+        jcall_workflow,
+        filter_workflow,
+        annotate_workflow
     )
 
     # Get RUN ID
@@ -164,4 +171,83 @@ if __name__ == "__main__":
                 project_dir=script_path
             )
 
+        if args.command == 'align':
+            print("READS ALIGNMENT")
+            align_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path
+            )
 
+        if args.command == 'mergealign':
+            print("MERGE ALIGMENT FILES")
+            mergealign_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path
+            )
+
+        if args.command == 'call':
+            print("ONE-RUN SINGLE AND JOINT VARIANT CALLING")
+            call_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path,
+                dtype=dtype
+            )
+
+        if args.command == 'scall':
+            print("SINGLE SAMPLE VARIANT CALLING")
+            scall_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path,
+                dtype=dtype
+            )
+
+        if args.command == 'jcall':
+            print("READS ALIGNMENT")
+            jcall_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path,
+                dtype=dtype
+            )
+
+        if args.command == 'filter':
+            print("JOINT-SAMPLE VARIANT CALLING")
+            filter_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path,
+                dtype=dtype
+            )
+
+        if args.command == 'annotate':
+            print("JOINT-SAMPLE VARIANT CALLING")
+            annotate_workflow(
+                args=args,
+                run_id=run_id,                
+                workspace=workspace, 
+                project_name=project_name, 
+                project_config=project_config,
+                project_dir=script_path
+            )

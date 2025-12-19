@@ -539,6 +539,17 @@ def get_arguments(descmsg=None, prog=None, version=None):
         metavar="<file>"
     )
 
+    call_optional.add_argument(
+        "--out",
+        help="""
+        Output prefix [default: my-ngs-vcf].
+        """,
+        required=False,
+        default='my-ngs-vcf',
+        type=str,
+        metavar="<text>"
+    )
+
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # SCALL-SPECIFIC OPTIONS
     scall_parser = argparse.ArgumentParser(
@@ -655,6 +666,17 @@ def get_arguments(descmsg=None, prog=None, version=None):
         "--jcaller",
         help="""
         Joint sample variant caller; 'gatk', 'glnexus' [default: gatk].
+        """,
+        required=False,
+        default='gatk',
+        type=str,
+        metavar="<text>"
+    )
+
+    jcall_optional.add_argument(
+        "--scaller",
+        help="""
+        Specifiy the tool that was used for single-sample calling; 'gatk', 'deepvariant' [default: gatk].
         """,
         required=False,
         default='gatk',
@@ -835,7 +857,7 @@ def get_arguments(descmsg=None, prog=None, version=None):
         prog=prog,
         usage="%(prog)s mergealign [-h/--help] <options>",
         parents=[mergealign_parser],
-        description="ALIGMENT FILES MERGE",
+        description="MERGE ALIGMENT FILES",
         add_help=False
     )
 

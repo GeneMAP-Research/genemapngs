@@ -56,14 +56,13 @@ include { ANNOTATE } from "${projectDir}/workflows/annotateVarints.nf"
 workflow {
 
     checkWkflow()
-    
-    checkParams()
 
     if(params.wkflow.toUpperCase() == "TEST") {
         TEST()
     }
 
     if(params.wkflow.toUpperCase() == "QC") {
+        checkParams()
         QC()
     }
 
