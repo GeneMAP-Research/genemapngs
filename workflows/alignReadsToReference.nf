@@ -65,7 +65,7 @@ workflow ALIGN {
         dupsMarked = alignReadsBWA(fastq)
     }
 
-    if(!(params.buildVersion == 't2t')) {
+    if(!(params.build == 't2t')) {
         dupsMarkedIndexed = indexMarkedAlignment(dupsMarked)
         recalTable = recalibrateBaseQualityScores(dupsMarkedIndexed)
         dupsMarkedIndexed.combine(recalTable, by: 0).set { applyBQSR_input }
@@ -83,7 +83,7 @@ workflow ALIGN {
 
 //   alignment = fixAlignmentMate(sam)
 //
-//   if(params.buildVersion == 't2t') {
+//   if(params.build == 't2t') {
 //       if(params.spark == true) {
 //           dupsMarked = markDuplicatesSpark(alignment)
 //           fixedAlignment = fixAlignmentTags(dupsMarked)
