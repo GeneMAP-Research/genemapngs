@@ -1,8 +1,4 @@
 #-- ignoring these
 .*
-configs/containersDir.config
-configs/reference-hg*.config
-configs/test-chpc.config
-configs/chpc.config
-configs/test-base.config
-configs/ucthpc.config
+*.sh
+configs/references/*

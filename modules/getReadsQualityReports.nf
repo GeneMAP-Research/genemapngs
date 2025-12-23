@@ -126,7 +126,6 @@ process trimgalore() {
             trim_galore \
                 --paired \
                 --basename ${fastqName} \
-                --trim-n \
                 --cores ${task.cpus} \
                 -o . \
                 ${readOne} \
@@ -142,7 +141,6 @@ process trimgalore() {
                 --three_prime_clip_R1 ${params.crop} \
                 --three_prime_clip_R2 ${params.crop} \
                 --basename ${fastqName} \
-                --trim-n \
                 --cores ${task.cpus} \
                 -o . \
                 ${readOne} \
@@ -158,7 +156,6 @@ process trimgalore() {
                 --clip_R1 ${params.headcrop} \
                 --clip_R2 ${params.headcrop} \
                 --basename ${fastqName} \
-                --trim-n \
                 --cores ${task.cpus} \
                 -o . \
                 ${readOne} \
@@ -197,8 +194,6 @@ process cutadapt() {
             ${readOne} \
             ${readTwo}
 
-        mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
-        mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
         """
 }
 

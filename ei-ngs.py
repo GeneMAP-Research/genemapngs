@@ -64,7 +64,7 @@ script_path = os.path.dirname(wrapper_script)
 # Bash tools to check
 tools = [
     "nextflow",
-    "singularity",
+    #"singularity",
     "ls"
 ]
 
