@@ -54,15 +54,28 @@ workflow ALIGN {
         fastq = convertAlignmentToFastq(alignmentSortedByName)
     }
 
-    if( params.aligner == "DRAGMAP" ) {
-        sam = dragenAligner(fastq)
-    }
-    else if( params.aligner == "TMAP" ) {
-        sam = tmapAligner(fastq)
+    if(params.aligner.toUpperCase() == "BWAMEM2") {
+        dupsMarked = alignReadsBWA(fastq)
     }
     else {
-        //sam = bwaAligner(fastq)
-        dupsMarked = alignReadsBWA(fastq)
+        if( params.aligner.toUpperCase() == "DRAGMAP" ) {
+            alignment = dragenAligner(fastq)
+        }
+        else if( params.aligner.toUpperCase() == "TMAP" ) {
+            alignment = tmapAligner(fastq)
+        }  
+        else {
+            alignment = bwaAligner(fastq)
+        }
+
+        if(params.dup_marker.toUpperCase() == "SAMBAMBA") {
+            sortedAlignment = sortAlignment(alignment)
+            dupsMarked = markDupSambam(sortedAlignment)
+        }
+        else {
+            sortedAlignment = sortAlignmentToBam(alignment)
+            dupsMarked = markDuplicates(sortedAlignment)
+        }
     }
 
     if(!(params.build == 't2t')) {
