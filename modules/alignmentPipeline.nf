@@ -155,7 +155,7 @@ process alignReadsBWA() {
 
 process bwaAligner() {
     tag "processing ${fastqName}"
-    label 'bwa_bgzip'
+    label 'ngstools'
     label 'readAligner'
     cache 'lenient'
     publishDir \
