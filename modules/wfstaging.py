@@ -184,9 +184,25 @@ def get_arguments(descmsg=None, prog=None, version=None):
         #    "singularity,slurm"
         #],
         nargs="?",
-        help="Select a profile to execute the commands with [defaul: singularity]",
+        help="""
+        Select a profile to execute the commands with [defaul: local].
+
+        A profile can be build from executors, containers, and references as follows:
+
+            <executor>,<container>,<reference>
+
+          executors: local, slurm, pbs, pbspro
+         containers: singularity, aptainer, docker
+          reference: hg19, hg38, t2t
+
+	       e.g.: local,docker,hg19
+	             slurm,singularity,hg38
+                 hg19,slurm (this will use locally installed packages which must be preloaded and in the system path)
+
+        NOTE: The order in which they are written does NOT matter!
+        """,
         required=False,
-        const="singularity",
+        const="local",
         default="local",
         type=str,
         metavar="<text>"
@@ -1035,7 +1051,8 @@ def system_settings(
     nf_config.write("}" + "\n")
 
 def get_project_config(
-        dtype=None, 
+        profile=None,
+        dtype=None,
         cmd=None
     ):
     # GENERATE MAIN PROJECT CONFIG
@@ -1049,13 +1066,16 @@ def get_project_config(
     project_config.write("params {" + "\n")
     project_config.write(f"  wkflow = '{cmd}'" + "\n")
     project_config.write("}" + "\n")
+    schedulers = ['slurm', 'pbs', 'pbspro']
     project_config.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")
-    if dtype.upper() == "WGS":
-        rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wgs.config\""
-        project_config.write(f"{rselector}\n")
-    else:
-        rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wes.config\""
-        project_config.write(f"{rselector}\n")
+    for scheduler in schedulers:
+        if scheduler in profile.split(','):
+            if dtype.upper() == "WGS":
+                rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wgs.config\""
+                project_config.write(f"{rselector}\n")
+            else:
+                rselector = "includeConfig \"${projectDir}/configs/resourceselector/resource-selector-wes.config\""
+                project_config.write(f"{rselector}\n")
 
     return workspace, project_name, project_config_name
 

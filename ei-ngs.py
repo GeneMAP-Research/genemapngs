@@ -139,7 +139,11 @@ if __name__ == "__main__":
             dtype = "WES"
 
         # GET VALUES FROM 'get_project_config' FUNCTION
-        workspace, project_name, project_config = get_project_config(dtype=dtype, cmd=args.command)
+        workspace, project_name, project_config = get_project_config(
+            profile=args.profile,
+            dtype=dtype, 
+            cmd=args.command
+        )
     
         os.makedirs(
             workspace,
