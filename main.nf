@@ -38,7 +38,11 @@ nextflow.enable.dsl = 2
 include { 
     jobCompletionMessage;
     checkWkflow;
-    checkParams
+    checkParams;
+    checkFaiIndex;
+    checkGatkSeqDict;
+    checkBwaIndex;
+    checkBwa2Index
 } from "${projectDir}/includes/workflowInspection.nf"
 
 include { TEST } from "${projectDir}/workflows/test.nf"

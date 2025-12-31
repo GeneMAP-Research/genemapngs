@@ -55,3 +55,23 @@ def checkParams() {
       error: println "\nPlease provide all required arguments!\n${usage}" 
    }
 }
+
+def checkFaiIndex() {
+   channel.fromPath(params.fastaRef + '.fai', checkIfExists: true).ifEmpty(error: ".fai reference index could not be found! Please create one in the reference directory with SAMTOOLS.")
+}
+
+def checkGatkSeqDict() {
+   channel.fromPath(params.fastaRef.replaceFirst(/fa/,"dict"), checkIfExists: true).ifEmpty(error: "Reference dictionary '.dict' required by GATK could not be found! Please create one in the reference directory.")
+}
+
+def checkBwaIndex() {
+   channel.fromPath(params.fastaRef + '.sa', checkIfExists: true).ifEmpty(error: "BWA index files could not be found! Please index the reference with BWA.")
+   channel.fromPath(params.fastaRef + '.pac', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+   channel.fromPath(params.fastaRef + '.ann', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+   channel.fromPath(params.fastaRef + '.amb', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+}
+
+def checkBwa2Index() {
+   channel.fromPath(params.fastaRef + '.0123', checkIfExists: true).ifEmpty(error: "BWA-MEM2 index files could not be found! Please index the reference with BWA-MEM2")
+   channel.fromPath(params.fastaRef + '.bwt.2bit.64', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA-MEM2")
+}

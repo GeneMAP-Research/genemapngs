@@ -4,6 +4,13 @@ nextflow.enable.dsl = 2
 
 //nextflow.enable.moduleBinaries = true
 
+include { 
+    checkFaiIndex;
+    checkGatkSeqDict;
+    checkBwaIndex;
+    checkBwa2Index
+} from "${projectDir}/includes/workflowInspection.nf"
+
 include {
     getInputFastqs;
     getSEInputFastqs;
@@ -36,6 +43,9 @@ include {
 
 workflow ALIGN {
     println "\nAlignment workflow begins here\n"
+
+    checkFaiIndex()
+
     if( params.input_ftype.toUpperCase() == "FASTQ" ) {
         println "INPUT FILE TYPE IS FASTQ\n"
         if(params.pe == false) {
@@ -55,6 +65,7 @@ workflow ALIGN {
     }
 
     if(params.aligner.toUpperCase() == "BWAMEM2") {
+        checkBwa2Index()
         dupsMarked = alignReadsBWA(fastq)
     }
     else {
@@ -65,6 +76,7 @@ workflow ALIGN {
             alignment = tmapAligner(fastq)
         }  
         else {
+            checkBwaIndex()
             alignment = bwaAligner(fastq)
         }
 
