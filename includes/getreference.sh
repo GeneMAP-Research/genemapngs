@@ -25,7 +25,7 @@ else
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.{gz,gz.tbi} && \
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.dbsnp138.{vcf,vcf.idx} && \
     cd ../refgenome && refdir=$(pwd) && \
-    wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.{dict,fasta,fastq.fai} && \
+    wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.{dict,fasta,fasta.fai} && \
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.{alt,amb,ann,bwt,pac,sa} && \
     cd $home
 

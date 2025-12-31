@@ -78,4 +78,5 @@ def checkBwaIndex() {
 def checkBwa2Index() {
    channel.fromPath(params.fastaRef + '.0123', checkIfExists: true).ifEmpty(error: "BWA-MEM2 index files could not be found! Please index the reference with BWA-MEM2")
    channel.fromPath(params.fastaRef + '.bwt.2bit.64', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA-MEM2")
+   return true
 }
