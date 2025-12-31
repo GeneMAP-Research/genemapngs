@@ -57,7 +57,7 @@ def checkParams() {
 }
 
 def checkFaiIndex() {
-   if(params.fastaRef + 'NULL') {
+   if(params.fastaRef == 'NULL') {
       error: "Please select a reference to use by adding in the profile builder. E.g., -profile singularity,slurm,hg19"
    } else {
       channel.fromPath(params.fastaRef + '.fai', checkIfExists: true).ifEmpty(error: ".fai reference index could not be found! Please create one in the reference directory with SAMTOOLS.")
