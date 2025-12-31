@@ -69,10 +69,10 @@ def checkGatkSeqDict() {
 }
 
 def checkBwaIndex() {
-   channel.fromPath(params.fastaRef + '.sa', checkIfExists: true).ifEmpty(error: "BWA index files could not be found! Please index the reference with BWA.")
-   channel.fromPath(params.fastaRef + '.pac', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
-   channel.fromPath(params.fastaRef + '.ann', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
-   channel.fromPath(params.fastaRef + '.amb', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+   channel.fromPath(params.fastaRef + '*.sa', checkIfExists: true).ifEmpty(error: "BWA index files could not be found! Please index the reference with BWA.")
+   channel.fromPath(params.fastaRef + '*.pac', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+   channel.fromPath(params.fastaRef + '*.ann', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
+   channel.fromPath(params.fastaRef + '*.amb', checkIfExists: true).ifEmpty(error: "Please index the reference with BWA")
 }
 
 def checkBwa2Index() {
