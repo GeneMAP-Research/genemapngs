@@ -30,7 +30,7 @@ else
     cd $home
 
     if [ $? -eq 0 ]; then
-cat <<EOF > ${script_dir}/configs/references/hg38.config
+cat <<EOF > ${script_dir}/../configs/references/hg38.config
 params {
     ref_dir = '${refdir}/'
     fastaRef = "\${params.ref_dir}Homo_sapiens_assembly38.fasta"
@@ -74,7 +74,7 @@ EOF
     cd $home
 
     if [ $? -eq 0 ]; then
-cat <<EOF > ${script_dir}/configs/references/hg19.config
+cat <<EOF > ${script_dir}/../configs/references/hg19.config
 params {
     ref_dir = '${refdir}/'
     fastaRef = "\${params.ref_dir}/hg19.p13.plusMT.no_alt_analysis_set.fa"
