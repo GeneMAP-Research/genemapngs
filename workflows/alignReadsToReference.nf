@@ -65,8 +65,8 @@ workflow ALIGN {
     }
 
     if(params.aligner.toUpperCase() == "BWAMEM2") {
-        checkBwa2Index()
-        dupsMarked = alignReadsBWA(fastq)
+        if(checkBwa2Index())
+            dupsMarked = alignReadsBWA(fastq)
     }
     else {
         if( params.aligner.toUpperCase() == "DRAGMAP" ) {
