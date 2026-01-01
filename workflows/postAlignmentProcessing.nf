@@ -18,7 +18,7 @@ include {
     recalibrateBaseQualityScoresSpark;
 } from "${projectDir}/modules/alignmentPipeline.nf"
 
-workflow {
+workflow BQSR {
     println "\nAlignment workflow begins here\n"
 
     println "INPUT FILE TYPE IS ALIGNMENT (BAM/CRAM)\n"
@@ -37,6 +37,6 @@ workflow {
 
 }
 
-workflow.onComplete { 
-    println "\nDone! Check results in ${params.output_dir}\n" 
-}
+//workflow.onComplete { 
+//    println "\nDone! Check results in ${params.output_dir}\n" 
+//}

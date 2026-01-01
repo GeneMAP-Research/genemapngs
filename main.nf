@@ -54,6 +54,8 @@ include { CALL } from "${projectDir}/workflows/callVariants.nf"
 include { FILTER } from "${projectDir}/workflows/filterVariantCalls.nf"
 include { ANNOTATE } from "${projectDir}/workflows/annotateVarints.nf"
 
+include { BQSR } from "${projectDir}/workflows/postAlignmentProcessing.nf"
+
 //include { BAM2FASTQ } from "${projectDir}/workflows/converBam2Fastq.nf"
 //include { BAM2CRAM } from "${projectDir}/workflows/converBam2Cram.nf"
 
@@ -76,6 +78,10 @@ workflow {
 
     if(params.wkflow.toUpperCase() == "ALIGN") {
         ALIGN()
+    }
+
+    if(params.wkflow.toUpperCase() == "BQSR") {
+        BQSR()
     }
 
     if(params.wkflow.toUpperCase() == "MERGEALIGN") {
