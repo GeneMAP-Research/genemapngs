@@ -200,7 +200,7 @@ def align_workflow(
         run_path=".",
         output_path=f"{workspace}",
         profiles=[
-            f"{args.profile}"
+            f"{args.profile},{args.build}"
         ],
         configs=[
             f"{project_config}"
