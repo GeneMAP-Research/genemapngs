@@ -199,6 +199,7 @@ def align_workflow(
         params=align_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile},{args.build}"
         ],
@@ -239,6 +240,7 @@ def mergealign_workflow(
         params=mergealign_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -298,6 +300,7 @@ def call_workflow(
         params=call_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -356,6 +359,7 @@ def scall_workflow(
         params=scall_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -418,6 +422,7 @@ def jcall_workflow(
         params=jcall_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -474,6 +479,7 @@ def filter_workflow(
         params=filter_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
@@ -533,6 +539,7 @@ def annotate_workflow(
         params=annotate_params,
         run_path=".",
         output_path=f"{workspace}",
+        log_path=".",
         profiles=[
             f"{args.profile}"
         ],
