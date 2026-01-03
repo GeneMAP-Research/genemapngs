@@ -242,7 +242,7 @@ def mergealign_workflow(
         output_path=f"{workspace}",
         log_path=".",
         profiles=[
-            f"{args.profile}"
+            f"{args.profile},{args.build}"
         ],
         configs=[
             f"{project_config}"
@@ -302,7 +302,7 @@ def call_workflow(
         output_path=f"{workspace}",
         log_path=".",
         profiles=[
-            f"{args.profile}"
+            f"{args.profile},{args.build}"
         ],
         configs=[
             f"{project_config}"
@@ -329,16 +329,10 @@ def scall_workflow(
         dtype=None
     ):
 
-    if args.jcaller == "glnexus":
-        if args.scaller == 'gatk':
-            glnexus_config = 'gatk'
-        elif args.scaller == 'deepvariant':
-            if dtype == "WES":
-                glnexus_config = 'DeepVariantWES'
-                genome = 'false'
-            else:
-                glnexus_config = 'DeepVariant'
-                genome = 'true'
+    if dtype == "WES":
+        genome = 'false'
+    else:
+        genome = 'true'
 
     scall_params = {
         "mode": "svarcall",
@@ -347,7 +341,6 @@ def scall_workflow(
         "output_dir": f"{args.output_dir}",
         "output_prefix": f"{args.out}",
         "single_caller": f"{args.scaller}",
-        "glnexus_config": f"{glnexus_config}",
         "vcf_dir": f"{args.vcf_dir}",
         "interval": f"{args.interval}",
         "threads": f"{args.threads}",
@@ -361,7 +354,7 @@ def scall_workflow(
         output_path=f"{workspace}",
         log_path=".",
         profiles=[
-            f"{args.profile}"
+            f"{args.profile},{args.build}"
         ],
         configs=[
             f"{project_config}"
@@ -388,10 +381,13 @@ def jcall_workflow(
         dtype=None
     ):
 
+    glnexus_config = "NULL"
+    genome = "NULL"
+
     if args.jcaller == "glnexus":
-        if args.jcaller == 'gatk':
+        if args.scaller == 'gatk':
             glnexus_config = 'gatk'
-        elif args.jcaller == 'deepvariant':
+        elif args.scaller == 'deepvariant':
             if dtype == "WES":
                 glnexus_config = 'DeepVariantWES'
                 genome = 'false'
@@ -415,7 +411,10 @@ def jcall_workflow(
         "interval": f"{args.interval}",
         "threads": f"{args.threads}",
         "njobs": f"{args.njobs}"        
-    }
+        }
+
+    if not args.jcaller == "glnexus":
+        del jcall_params['glnexus_config']
 
     nf_jcall = nextflow.run(
         f"{project_dir}/main.nf",

@@ -11,7 +11,7 @@ def getCramFileSet() {
 }
 
 def getAlignmentFileSet() {
-    return channel.fromFilePairs( [ params.alignment_dir + "/*.{bam,bam.bai}", params.alignment_dir + "*.{cram,cram.crai}" ] , size: 2, flat: true )
+    return channel.fromFilePairs( [ params.alignment_dir + "/*.{bam,bam.bai}", params.alignment_dir + "/*.{cram,cram.crai}" ] , size: 2, flat: true )
                   .ifEmpty { error "\nERROR: Could not locate a file! \n" }
                   .map { bamName, bamFile, bamIndex -> tuple(bamName, bamFile, bamIndex) }
 }

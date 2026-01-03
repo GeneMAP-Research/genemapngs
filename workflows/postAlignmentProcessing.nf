@@ -6,6 +6,7 @@ nextflow.enable.dsl = 2
 
 include {
     getAlignment;
+    getAlignmentDir;
     markDuplicatesGatk;
     markDuplicates;
     markDupSambam;
@@ -22,7 +23,7 @@ workflow BQSR {
     println "\nAlignment workflow begins here\n"
 
     println "INPUT FILE TYPE IS ALIGNMENT (BAM/CRAM)\n"
-    alignment = getAlignment()
+    alignment = getAlignmentDir()
 
     if(!(params.build == 't2t')) {
         recalTable = recalibrateBaseQualityScores(alignment)

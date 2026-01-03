@@ -17,7 +17,7 @@ def getInputAlignments() {
 }
 
 def getAlignmentDir() {
-    return channel.fromPath( params.input_dir + '*', type: 'dir' )
+    return channel.fromPath( params.input_dir + '/*', type: 'dir' )
                   .ifEmpty { error "\nERROR: Something went wrong!" }
                   .map { alignDir -> tuple("${alignDir.baseName}", alignDir) }
 }
@@ -844,6 +844,7 @@ process updateMergedAlignmentHeader() {
         """
         samtools \
             addreplacerg \
+            -w \
             -r \"@RG\\tID:${bamName}\\tSM:${bamName}\\tPL:ILLUMINA\" \
             -O CRAM \
             --write-index \

@@ -476,10 +476,19 @@ def get_arguments(descmsg=None, prog=None, version=None):
     # MERGE-ALIGN-SPECIFIC OPTIONS
     mergealign_parser = argparse.ArgumentParser(
         add_help=False,
-        parents=[parent_parser],
+        parents=[ref_parser],
     )
 
+    mergealign_required = mergealign_parser.add_argument_group("Required")
     mergealign_optional = mergealign_parser.add_argument_group("Optional")
+
+    mergealign_required.add_argument(
+        "--input_dir",
+        help="Path containing BAM/CRAM subdirectories.",
+        required=True,
+        type=pathlib.Path,
+        metavar="<path>"
+    )
 
     mergealign_optional.add_argument(
         "--sort_order",
@@ -570,7 +579,7 @@ def get_arguments(descmsg=None, prog=None, version=None):
     # SCALL-SPECIFIC OPTIONS
     scall_parser = argparse.ArgumentParser(
         add_help=False,
-        parents=[parent_parser],
+        parents=[ref_parser],
     )
 
     scall_required = scall_parser.add_argument_group("Required")
@@ -947,6 +956,19 @@ def get_arguments(descmsg=None, prog=None, version=None):
     )
 
     #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # RAW TO VCF SUBPARSER
+    subparsers.add_parser(
+        "bqsr",
+        prog=prog,
+        usage="%(prog)s bqsr [-h/--help] <options>",
+        parents=[align_parser],
+        description="""
+        RECALIBRATE BASE QUALITY SCORES
+        """,
+        add_help=False
+    )
+
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # RAW TO ANNOTATED SUBPARSER
     subparsers.add_parser(
         "raw2annotate",
@@ -1066,7 +1088,7 @@ def get_project_config(
     project_config.write("params {" + "\n")
     project_config.write(f"  wkflow = '{cmd}'" + "\n")
     project_config.write("}" + "\n")
-    schedulers = ['slurm', 'pbs', 'pbspro']
+    schedulers = ['slurm', 'pbs', 'pbspro', 'local']
     project_config.write("includeConfig \"${projectDir}/configs/profile-selector.config\"\n")
     for scheduler in schedulers:
         if scheduler in profile.split(','):

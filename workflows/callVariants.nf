@@ -132,7 +132,7 @@ workflow CALL {
                 // genomicsdb workspaces must already exist
                 //-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
-                if(!params.interval == 'NULL') {
+                if(!(params.interval == 'NULL') || !(params.interval == None)) {
                     genomicInterval = getGenomicInterval(gvcfList)
                     workspace = getGenomicsdbWorkspaces().map { wrkspc -> tuple(wrkspc.baseName, wrkspc) }
                     genomicInterval
@@ -199,7 +199,7 @@ workflow CALL {
         }
         else if(params.single_caller.toUpperCase() == 'DELLY') {
             if(params.input_ftype.toUpperCase() == 'VCF' ) {
-                println "DELLY INPUT IS BCF"
+                println "DELLY INPUT IS VCF"
                 //getVcfFiles()
                 //    .map { vcfname, vcf_index -> vcf_index }
                 //    .collect().view()

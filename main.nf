@@ -88,7 +88,7 @@ workflow {
         MERGEALIGN()
     }
 
-    if(params.wkflow.toUpperCase() == "CALL") {
+    if(params.wkflow.toUpperCase() == "CALL" || params.wkflow.toUpperCase() == "SCALL" || params.wkflow.toUpperCase() == "JCALL") {
         CALL()
     }
 
