@@ -17,7 +17,7 @@ def getInputAlignments() {
 }
 
 def getAlignmentDir() {
-    return channel.fromPath( params.input_dir + '*', type: 'dir' )
+    return channel.fromPath( params.input_dir + '/*', type: 'dir' )
                   .ifEmpty { error "\nERROR: Something went wrong!" }
                   .map { alignDir -> tuple("${alignDir.baseName}", alignDir) }
 }
@@ -105,10 +105,8 @@ process alignReadsBWA() {
     label 'ngstools'
     label 'readAligner'
     cache 'lenient'
-    if(params.buildVersion == 't2t') {
-        publishDir \
-            path: "${params.output_dir}/cram/", \
-            mode: 'copy'
+    if(params.build == 't2t') {
+        storeDir "${params.output_dir}/cram/"
     } else {
         publishDir \
             path: "${params.output_dir}/cram/dupsmarked/"
@@ -157,7 +155,7 @@ process alignReadsBWA() {
 
 process bwaAligner() {
     tag "processing ${fastqName}"
-    label 'bwa_bgzip'
+    label 'ngstools'
     label 'readAligner'
     cache 'lenient'
     publishDir \
@@ -528,9 +526,9 @@ process markDuplicates() {
     tag "processing ${bamName}"
     label 'samtools'
     label 'bamSorter'
-    //storeDir { if(params.buildVersion == 't2t') { "${params.output_dir}/cram/" } else { "${params.output_dir}/cram/dupsmarked/" } }
+    //storeDir { if(params.build == 't2t') { "${params.output_dir}/cram/" } else { "${params.output_dir}/cram/dupsmarked/" } }
     publishDir { 
-        if(params.buildVersion == 't2t') { 
+        if(params.build == 't2t') { 
             path: "${params.output_dir}/cram/"
             mode: 'copy'
         } else { 
@@ -661,8 +659,7 @@ process applyBaseQualityRecalibrator() {
     tag "processing ${bamName}"
     label 'gatk'
     label 'applyBqsr'
-    publishDir \
-        path: "${params.output_dir}/cram/"
+    storeDir "${params.output_dir}/cram/"
     input:
         tuple \
             val(bamName), \
@@ -847,6 +844,7 @@ process updateMergedAlignmentHeader() {
         """
         samtools \
             addreplacerg \
+            -w \
             -r \"@RG\\tID:${bamName}\\tSM:${bamName}\\tPL:ILLUMINA\" \
             -O CRAM \
             --write-index \

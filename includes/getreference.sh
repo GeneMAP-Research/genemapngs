@@ -7,6 +7,7 @@ if [ $# -lt 2 ]; then
 else
   reference_dir=$1; build=$2
   home=$(pwd)
+  script_dir=$(dirname $0)
 
   mkdir -p ${reference_dir}/${build}/{refgenome,gatkbundles}
   cd ${reference_dir}/${build}
@@ -24,12 +25,12 @@ else
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/1000G_phase1.snps.high_confidence.hg38.vcf.{gz,gz.tbi} && \
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.dbsnp138.{vcf,vcf.idx} && \
     cd ../refgenome && refdir=$(pwd) && \
-    wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.{dict,fasta,fastq.fai} && \
+    wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.{dict,fasta,fasta.fai} && \
     wget -c https://storage.googleapis.com/genomics-public-data/resources/broad/hg38/v0/Homo_sapiens_assembly38.fasta.64.{alt,amb,ann,bwt,pac,sa} && \
     cd $home
 
     if [ $? -eq 0 ]; then
-cat <<EOF > configs/references/hg38.config
+cat <<EOF > ${script_dir}/../configs/references/hg38.config
 params {
     ref_dir = '${refdir}/'
     fastaRef = "\${params.ref_dir}Homo_sapiens_assembly38.fasta"
@@ -56,6 +57,7 @@ EOF
     echo hg19
     cd refgenome && refdir=$(pwd) && \
     wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/analysisSet/hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
+    [ ! -e hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz ] && \
     wget -c https://hgdownload.soe.ucsc.edu/goldenPath/hg19/bigZips/analysisSet/hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
     gunzip -f hg19.p13.plusMT.no_alt_analysis_set.fa.gz && \
     tar zxvf hg19.p13.plusMT.no_alt_analysis_set.bwa_index.tar.gz && \
@@ -72,7 +74,7 @@ EOF
     cd $home
 
     if [ $? -eq 0 ]; then
-cat <<EOF > configs/references/hg19.config
+cat <<EOF > ${script_dir}/../configs/references/hg19.config
 params {
     ref_dir = '${refdir}/'
     fastaRef = "\${params.ref_dir}/hg19.p13.plusMT.no_alt_analysis_set.fa"

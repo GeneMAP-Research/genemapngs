@@ -17,10 +17,33 @@ def getT3sAdapter() {
     return channel.fromPath(projectDir + 'adapters/TruSeq3-SE.fa')
 }
 
+process verifyAlignmentID() {
+    tag "processing ${bamName}"
+    label 'verifybam'
+    label 'qcMem'
+    publishDir \
+        path: "${params.output_dir}/verifybam/", \
+        mode: 'copy'
+    input:
+        tuple \
+            val(bamName), \
+            path(bamFile)
+    output:
+        path "${bamName}*"
+    script:
+        """
+        VerifyBamID \
+            --BamFile ${bamFile} \
+            --Reference ${params.fastaRef} \
+            --SVDPrefix ${projectDir}/data/VerifyBamID-master/resource/exome/1000g.phase3.10k.b38.exome.vcf.gz.dat \
+            --Output ${bamFile}
+        """
+}
+
 process getAlignmentQualityReports() {
     tag "processing ${bamName}"
-    label 'fastqc'
-    label 'fastqc_mem'
+    label 'trimgalore'
+    label 'qcMem'
     publishDir \
         path: "${params.output_dir}/fastqc/", \
         mode: 'copy'
@@ -43,11 +66,12 @@ process getAlignmentQualityReports() {
 process getFastqQualityReports() {
     //////////////////debug true
     tag "processing ${fastqName}"
-    label 'fastqc'
-    label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/fastqc/", \
-        mode: 'copy'
+    label 'trimgalore'
+    label 'qcMem'
+    //publishDir \
+    //    path: "${params.output_dir}/fastqc/", \
+    //    mode: 'copy'
+    storeDir "${params.output_dir}/fastqc/"
     input:
         tuple \
             val(fastqName), \
@@ -68,8 +92,8 @@ process getFastqQualityReports() {
 
 process getMultiQcFastqReports() {
     tag "Writing MULTIQC Report"
-    label 'multiqc'
-    label 'multiqcMem'
+    label 'trimgalore'
+    label 'qcMem'
     input:
         val(fastqName)
     script:
@@ -84,9 +108,11 @@ process getMultiQcFastqReports() {
 process trimgalore() {
     tag "processing ${fastqName}"
     label 'trimgalore'
-    label 'fastqcMem'
+    label 'qcMem'
     publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+        path: "${params.output_dir}/trimmedreads/",
+        mode: 'move'
+    //storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
@@ -95,31 +121,58 @@ process trimgalore() {
         path("*_val_R{1,2}.fastq.gz")
     script:
         (readOne, readTwo) = fastqReads
-        """
-        trim_galore \
-            --paired \
-            --clip_R1 ${params.headcrop} \
-            --clip_R2 ${params.headcrop} \
-            --three_prime_clip_R1 ${params.crop} \
-            --three_prime_clip_R2 ${params.crop} \
-            --basename ${fastqName} \
-            --trim-n \
-            --cores ${task.cpus} \
-            -o . \
-            ${readOne} \
-            ${readTwo} 
+        if(params.headcrop == "NULL" && params.crop == "NULL") 
+            """
+            trim_galore \
+                --paired \
+                --basename ${fastqName} \
+                --cores ${task.cpus} \
+                -o . \
+                ${readOne} \
+                ${readTwo} 
 
-        mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
-        mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
-        """
+            mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
+            mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
+            """
+        else if(params.headcrop == "NULL") 
+            """
+            trim_galore \
+                --paired \
+                --three_prime_clip_R1 ${params.crop} \
+                --three_prime_clip_R2 ${params.crop} \
+                --basename ${fastqName} \
+                --cores ${task.cpus} \
+                -o . \
+                ${readOne} \
+                ${readTwo} 
+
+            mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
+            mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
+            """
+        else if(params.crop == "NULL") 
+            """
+            trim_galore \
+                --paired \
+                --clip_R1 ${params.headcrop} \
+                --clip_R2 ${params.headcrop} \
+                --basename ${fastqName} \
+                --cores ${task.cpus} \
+                -o . \
+                ${readOne} \
+                ${readTwo} 
+
+            mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
+            mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
+            """
 }
 
 process cutadapt() {
     tag "processing ${fastqName}"
     label 'trimgalore'
-    label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+    label 'qcMem'
+    //publishDir \
+    //    path: "${params.output_dir}/trimmedreads/"
+    storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
@@ -141,17 +194,16 @@ process cutadapt() {
             ${readOne} \
             ${readTwo}
 
-        mv ${fastqName}_val_1.fq.gz ${fastqName}_val_R1.fastq.gz
-        mv ${fastqName}_val_2.fq.gz ${fastqName}_val_R2.fastq.gz
         """
 }
 
 process trimmomatic() {
     tag "processing ${fastqName}"
     label 'trimatic'
-    label 'fastqcMem'
-    publishDir \
-        path: "${params.output_dir}/trimmedreads/"
+    label 'qcMem'
+    //publishDir \
+    //    path: "${params.output_dir}/trimmedreads/"
+    storeDir "${params.output_dir}/trimmedreads/"
     input:
         tuple \
             val(fastqName), \
